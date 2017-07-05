@@ -1,0 +1,4847 @@
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/UIntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/UIntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/UIntTag.java	(revision )
+@@ -0,0 +1,24 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class UIntTag extends PlcTag {
++    public UIntTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(2);
++    }
++    public static boolean checkAddress(String addr) {
++        return check16bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetWordAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=11;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/BDPlc.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/BDPlc.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/BDPlc.java	(revision )
+@@ -0,0 +1,94 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.content.ContentValues;
++import android.content.Context;
++import android.database.Cursor;
++import android.database.sqlite.SQLiteDatabase;
++
++import java.util.ArrayList;
++
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++
++/**
++ * Created by Lucas on 24/01/2017.
++ */
++
++public class BDPlc {
++    private SQLiteDatabase bd;
++
++    public BDPlc(Context context){
++        BDCore auxBd = new BDCore(context);
++        bd = auxBd.getWritableDatabase();
++    }
++
++
++    public boolean inserir(PlcConnection plc){
++        try {
++            ContentValues valores = new ContentValues();
++            valores.put("nome", plc.getPlcName());
++            valores.put("ip", plc.getIp());
++            valores.put("rack", plc.getRack());
++            valores.put("slot", plc.getSlot());
++            bd.insertOrThrow("plcList", null, valores);
++            return true;
++        } catch (Exception ex){
++            return false;
++        }
++    }
++
++
++    public void atualizar(PlcConnection plc){
++        ContentValues valores = new ContentValues();
++        valores.put("nome", plc.getPlcName());
++        valores.put("ip", plc.getIp());
++        valores.put("rack", plc.getRack());
++        valores.put("slot", plc.getSlot());
++        bd.update("plcList", valores, "_id = ?", new String[]{""+plc.getId()});
++    }
++
++
++    public void deletar(PlcConnection plc){
++        bd.delete("plcList", "_id = "+plc.getId(), null);
++    }
++
++
++    public ArrayList<PlcConnection> buscar(){
++        ArrayList<PlcConnection> list = new ArrayList<PlcConnection>();
++        String[] colunas = new String[]{"_id", "nome", "ip","rack","slot"};
++
++        Cursor cursor = bd.query("plcList", colunas, null, null, null, null, "nome ASC");
++
++        if(cursor.getCount() > 0){
++            cursor.moveToFirst();
++
++            do{
++                PlcConnection plc = new PlcConnection(cursor.getString(1),cursor.getString(2),cursor.getInt(3),cursor.getInt(4));
++                plc.setID(cursor.getLong(0));
++                list.add(plc);
++
++            }while(cursor.moveToNext());
++        }
++
++        return(list);
++    }
++    public PlcConnection buscarPlc(){
++        String[] colunas = new String[]{"_id", "nome", "ip","rack","slot"};
++
++        Cursor cursor = bd.query("plcList", colunas, null, null, null, null, "nome ASC");
++
++        if(cursor.getCount() > 0){
++            cursor.moveToFirst();
++
++
++                PlcConnection plc = new PlcConnection(cursor.getString(1),cursor.getString(2),cursor.getInt(3),cursor.getInt(4));
++                plc.setID(cursor.getLong(0));
++                return plc;
++
++
++        }
++
++        return(new PlcConnection("0.0.0.0",0,0));
++    }
++
++
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpuInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpuInfo.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpuInfo.java	(revision )
+@@ -0,0 +1,37 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++/**
++ *
++ * @author Davide
++ */
++public class S7CpuInfo {
++
++    private final int BufSize = 256;
++    protected byte[] Buffer = new byte[BufSize];
++
++    protected void Update(byte[] Src, int Pos)
++    {
++        System.arraycopy(Src, Pos, Buffer, 0, BufSize);
++    }
++
++    public String ModuleTypeName()
++    {
++        return S7.GetStringAt(Buffer,172,32);
++    }
++    public String SerialNumber()
++    {
++        return S7.GetStringAt(Buffer,138,24);
++    }
++    public String ASName()
++    {
++        return S7.GetStringAt(Buffer,2,24);
++    }
++    public String Copyright()
++    {
++        return S7.GetStringAt(Buffer,104,26);
++    }
++    public String ModuleName()
++    {
++        return S7.GetStringAt(Buffer,36,24);
++    }
++}
+Index: app/src/main/AndroidManifest.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/AndroidManifest.xml	(revision )
++++ app/src/main/AndroidManifest.xml	(revision )
+@@ -0,0 +1,36 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="br.ufla.vilelalucas.androidscada">
++
++    <uses-permission android:name="android.permission.INTERNET" />
++
++    <application
++        android:allowBackup="true"
++        android:icon="@mipmap/ic_launcher"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@style/AppTheme">
++        <activity android:name=".MainActivity">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++        <!--
++ ATTENTION: This was auto-generated to add Google Play services to your project for
++     App Indexing.  See https://g.co/AppIndexing/AndroidStudio for more information.
++        -->
++        <meta-data
++            android:name="com.google.android.gms.version"
++            android:value="@integer/google_play_services_version" />
++
++        <activity android:name=".TagManagerActivity">
++            <intent-filter>
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++        <activity android:name=".AlarmsActivity"></activity>
++    </application>
++
++</manifest>
+\ No newline at end of file
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/Char16Tag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/Char16Tag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/Char16Tag.java	(revision )
+@@ -0,0 +1,25 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class Char16Tag extends PlcTag {
++    public Char16Tag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(2);
++    }
++
++    public static boolean checkAddress(String addr) {
++        return check16bit(addr);
++     }
++    public String tagTostr(){
++
++     return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetStringAt(this.getValue(),0,2);
++    }
++    public void setType(){
++        super.tagType=2;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortIntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortIntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortIntTag.java	(revision )
+@@ -0,0 +1,25 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class ShortIntTag extends PlcTag {
++public ShortIntTag(String address,String tagName){
++    super(address,tagName);
++    super.setTagSize(1);
++}
++
++    public static boolean checkAddress(String addr) {
++       return check8bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetShortAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=9;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/TagManagerActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/TagManagerActivity.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/TagManagerActivity.java	(revision )
+@@ -0,0 +1,147 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.content.DialogInterface;
++import android.support.v7.app.AlertDialog;
++import android.support.v7.app.AppCompatActivity;
++import android.os.Bundle;
++import android.view.View;
++import android.widget.AdapterView;
++import android.widget.ArrayAdapter;
++import android.widget.Button;
++import android.widget.EditText;
++import android.widget.ListView;
++import android.widget.Spinner;
++import android.widget.Toast;
++
++import java.util.ArrayList;
++
++import br.ufla.vilelalucas.androidscada.Tags.BinaryTag;
++import br.ufla.vilelalucas.androidscada.Tags.CharTag;
++import br.ufla.vilelalucas.androidscada.Tags.FloatTag;
++import br.ufla.vilelalucas.androidscada.Tags.IntTag;
++import br.ufla.vilelalucas.androidscada.Tags.LongIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.LongUIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++import br.ufla.vilelalucas.androidscada.Tags.ShortIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.ShortUIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.UIntTag;
++
++public class TagManagerActivity extends AppCompatActivity {
++
++    public EditText tagNameText;
++    public EditText tagAddr;
++    public Spinner spinner;
++    ListView lv;
++    int lvpos;
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setContentView(R.layout.activity_tag_manager);
++
++        tagNameText   = (EditText)findViewById(R.id.tagNameText);
++        tagAddr   = (EditText)findViewById(R.id.tagAddr);
++        spinner = (Spinner) findViewById(R.id.spinner);
++
++        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,R.array.tiposTags_array, android.R.layout.simple_spinner_item);
++        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
++        spinner.setAdapter(adapter);
++        lv=(ListView)findViewById(R.id.listView);
++        listaTags();
++        lvpos=0;
++
++
++        lv.setOnItemClickListener(
++                new AdapterView.OnItemClickListener()
++                {
++                    @Override
++                    public void onItemClick(AdapterView<?> arg0, View view,
++                                            int position, long id) {
++                        lvpos=position;
++                       editMode();
++                    }
++                }
++        );
++
++
++    }
++    public void editMode(){
++        Button edit = (Button) findViewById(R.id.editButton);
++        Button cancel = (Button) findViewById(R.id.cancelButton);
++        edit.setText("EDITAR");
++        cancel.setVisibility(View.INVISIBLE);
++        tagAddr.setText("");
++        tagNameText.setText("");
++        spinner.setSelection(0);
++
++    }
++    public void listaTags(){
++        BDTag bd = new BDTag(this);
++        ArrayList<PlcTag> lista=bd.buscar();
++        String[] str=new String [lista.size()];
++        for(int k=0;k<lista.size();k++){
++            str[k]=lista.get(k).tagInfo();
++        }
++        lv.setAdapter(new ArrayAdapter<String>(getApplicationContext(), android.R.layout.test_list_item, str));
++    }
++    public PlcTag readTag(){
++            String item=spinner.getSelectedItem().toString();
++            String tagAdd=tagAddr.getText().toString().toUpperCase();
++            String tagN=tagNameText.getText().toString().toUpperCase();
++            System.out.println(tagN+"   "+item);
++            return PlcTag.createTag(tagN,tagAdd,item);
++    }
++    public void addClick(View view){
++        BDTag bd = new BDTag(this);
++        if(bd.inserir(readTag())){
++
++        Toast t = Toast.makeText(getApplicationContext(), "Tag adicionada", Toast.LENGTH_SHORT);
++        t.show();
++        }else{
++            Toast t = Toast.makeText(getApplicationContext(), "Verifique as informações da Tag", Toast.LENGTH_SHORT);
++            t.show();
++
++        }
++        listaTags();
++    }
++    public void editClick(View view){
++        Button edit = (Button) findViewById(R.id.editButton);
++        Button cancel = (Button) findViewById(R.id.cancelButton);
++        BDTag bd = new BDTag(this);
++        PlcTag tag = bd.buscar().get(lvpos);
++        if(edit.getText().toString().equalsIgnoreCase("EDITAR")) {
++            cancel.setVisibility(View.VISIBLE);
++            tagAddr.setText(tag.getAddress());
++            tagNameText.setText(tag.getTagName());
++            spinner.setSelection(2);
++            edit.setText("SALVAR");
++        }else{
++            long tagID=tag.getID();
++            tag=readTag();
++            tag.setID(tagID);
++            if(bd.atualizar(tag)){
++                Toast t = Toast.makeText(getApplicationContext(), "Tag editada", Toast.LENGTH_SHORT);
++                t.show();
++                editMode();
++            }else{
++                Toast t = Toast.makeText(getApplicationContext(), "Verifique as informações da Tag", Toast.LENGTH_SHORT);
++                t.show();
++
++            }
++            listaTags();
++        }
++
++
++    }
++    public void cancelClick(View view){
++      editMode();
++    }
++    public void deleteClick(View view){
++        BDTag bd = new BDTag(this);
++        PlcTag tag = bd.buscar().get(lvpos);
++        bd.deletar(tag);
++        System.out.println("DELETE");
++        listaTags();
++
++    }
++}
+Index: app/src/main/res/values/strings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values/strings.xml	(revision )
++++ app/src/main/res/values/strings.xml	(revision )
+@@ -0,0 +1,15 @@
++<resources>
++    <string name="app_name">AndroidSCADA</string>
++    <string-array name="tiposTags_array">
++        <item>Boolean</item>
++        <item>Int</item>
++        <item>UInt</item>
++        <item>Float</item>
++        <item>Char</item>
++        <item>Long Int</item>
++        <item>Long Uint</item>
++        <item>Short Int</item>
++        <item>Short UInt</item>
++    </string-array>
++    <string name="title_activity_tag_manager">TagManagerActivity</string>
++</resources>
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongUIntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongUIntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongUIntTag.java	(revision )
+@@ -0,0 +1,24 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class LongUIntTag extends PlcTag {
++    public LongUIntTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(4);
++    }
++    public static boolean checkAddress(String addr) {
++        return check32bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetDWordAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=8;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/PlcTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/PlcTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/PlcTag.java	(revision )
+@@ -0,0 +1,484 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class PlcTag {
++    String tagAddress;
++    byte [] value;
++    String tagName;
++    int tagSize;
++    int tagType;
++    int areaMem;
++    int offsetAddr;
++    int dbNumber;
++    boolean read;
++    boolean write;
++    int bitNumber;//Uso exclusivo para variaveis binárias
++    long tagID;
++
++
++    public String getAddress(){
++        return tagAddress;
++    }
++    public void setValue(byte [] value){
++        this.value=value;
++    }
++    public PlcTag(String tagName,String address){
++        this.tagAddress=address;
++        this.tagName=tagName;
++        this.value=new byte[2];
++        this.tagSize=2;
++        this.setMemArea(address);
++        this.read=true;
++        this.write=false;
++        this.setType();
++    }
++    public long getID(){
++        return tagID;
++    }
++    public int getType(){
++        return tagType;
++    }
++    public void setType(){
++        tagType=0;
++    }
++    public void setID(long ID){
++        this.tagID=ID;
++    }
++    public void setNoRead(){
++        this.read=false;
++    }
++    public void setRead(){
++        this.read=true;
++    }
++    public boolean getRead(){
++        return read;
++    }
++    public void setNoWrite(){
++        this.write=false;
++    }
++    public void setWrite(){
++        this.write=true;
++    }
++    public boolean getWrite(){
++        return write;
++    }
++
++public void setTagSize(int tagSize){
++    this.tagSize=tagSize;
++}
++    public String getTagAddress(){
++        return tagAddress;}
++    public int getTagSize(){
++        return tagSize;
++    }
++    public byte[] getValue(){
++        return this.value;
++    }
++    public String getTagName(){
++        return tagName;
++    }
++    public int getAreaMem(){
++        return areaMem;
++    }
++    public int getOffsetAddr(){ return offsetAddr;}
++    public int getDbNumber(){ return dbNumber;}
++    public int getBitNumber(){return bitNumber;}
++    public static boolean checkAddress(String addr){
++        return checkBool(addr)&&check8bit(addr)&&check16bit(addr)&&check32bit(addr)&&check64bit(addr);
++    }
++    public static boolean checkBool(String addr) {
++        try {
++            addr = addr.toUpperCase();
++            System.out.println(addr);
++            String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++            boolean check;
++            if ((part[0].contentEquals("I") || part[0].contentEquals("Q") || part[0].contentEquals("M"))&&part.length==4&&part[2].contentEquals(".")) {
++                int offset = Integer.parseInt(part[1]);
++                int bit = Integer.parseInt(part[3]);
++                if (offset >= 0 && bit>= 0 && bit<8) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++
++            } else if (part[0].contentEquals("DB") && part[2].contentEquals(",D")&&part.length==6) {
++                int dbNum = Integer.parseInt(part[1]);
++                int offset = Integer.parseInt(part[3]);
++                int bit = Integer.parseInt(part[5]);
++
++                if (dbNum >= 0 && offset >= 0 && bit>= 0 && bit<8) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++            } else
++
++                return false;
++
++        } catch (Exception e) {
++            return false;
++
++        }
++        return  false;
++    }
++    public static boolean check8bit(String addr) {
++        try {
++            addr = addr.toUpperCase();
++            System.out.println(addr);
++            String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++            boolean check;
++            if ((part[0].contentEquals("IB") || part[0].contentEquals("QB") || part[0].contentEquals("MB"))&&part.length==2) {
++                int offset = Integer.parseInt(part[1]);
++                if (offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++
++            } else if (part[0].contentEquals("DB") && part[2].contentEquals(",DBB")&&part.length==4) {
++                int dbNum = Integer.parseInt(part[1]);
++                int offset = Integer.parseInt(part[3]);
++
++                if (dbNum >= 0 && offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++            } else
++
++                return false;
++
++        } catch (Exception e) {
++            return false;
++
++        }
++        return  false;
++    }
++    public static boolean check16bit(String addr) {
++        try {
++            addr = addr.toUpperCase();
++            System.out.println(addr);
++            String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++            boolean check;
++            if ((part[0].contentEquals("IW") || part[0].contentEquals("QW") || part[0].contentEquals("MW"))&&part.length==2) {
++                int offset = Integer.parseInt(part[1]);
++                if (offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++
++            } else if (part[0].contentEquals("DW") && part[2].contentEquals(",DW")&&part.length==4) {
++                int dbNum = Integer.parseInt(part[1]);
++                int offset = Integer.parseInt(part[3]);
++
++                if (dbNum >= 0 && offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++            } else
++
++                return false;
++
++        } catch (Exception e) {
++            return false;
++
++        }
++        return  false;
++    }
++    public static boolean check32bit(String addr) {
++        try {
++            addr = addr.toUpperCase();
++            System.out.println(addr);
++            String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++            boolean check;
++            if ((part[0].contentEquals("ID") || part[0].contentEquals("QD") || part[0].contentEquals("MD"))&&part.length==2) {
++                int offset = Integer.parseInt(part[1]);
++                if (offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++
++            } else if (part[0].contentEquals("DB") && part[2].contentEquals(",DD")&&part.length==4) {
++                int dbNum = Integer.parseInt(part[1]);
++                int offset = Integer.parseInt(part[3]);
++
++                if (dbNum >= 0 && offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++            } else
++
++                return false;
++
++        } catch (Exception e) {
++            return false;
++
++        }
++        return  false;
++    }
++    public static boolean check64bit(String addr) {
++        try {
++            addr = addr.toUpperCase();
++            System.out.println(addr);
++            String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++            boolean check;
++            if ((part[0].contentEquals("ID") || part[0].contentEquals("QD") || part[0].contentEquals("MD"))&&part.length==2) {
++                int offset = Integer.parseInt(part[1]);
++                if (offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++
++            } else if (part[0].contentEquals("DB") && part[2].contentEquals(",DD")&&part.length==4) {
++                int dbNum = Integer.parseInt(part[1]);
++                int offset = Integer.parseInt(part[3]);
++
++                if (dbNum >= 0 && offset >= 0) {
++                    System.out.println("Valor correto");
++                    return true;
++                }
++            } else
++
++                return false;
++
++        } catch (Exception e) {
++            return false;
++
++        }
++        return  false;
++    }
++    public void setMemArea(String addr){
++        addr.toUpperCase();
++        String[] part = addr.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
++        if (addr.startsWith("I")){
++            this.areaMem = S7.S7AreaPE;
++            this.offsetAddr = Integer.parseInt(part[1]);
++            this.dbNumber=0;
++        }
++        if (addr.startsWith("Q")){
++            this.areaMem = S7.S7AreaPA;
++            this.offsetAddr = Integer.parseInt(part[1]);
++            this.dbNumber=0;
++        }
++        if (addr.startsWith("M")){
++            this.areaMem= S7.S7AreaMK;
++            this.offsetAddr = Integer.parseInt(part[1]);
++            this.dbNumber=0;
++        }
++        if (addr.startsWith("DB")){
++            this.areaMem= S7.S7AreaDB;
++            this.dbNumber = Integer.parseInt(part[1]);
++            this.offsetAddr = Integer.parseInt(part[3]);
++
++        }
++    }
++    public void setBuffer(){
++
++    }
++    public int getRW(){
++        if(write&&read){
++            return 3;
++        }else if(write){
++            return 2;
++        }else if(read){
++            return 1;
++        }else return 0;
++    }
++    public void setRW(int rw){
++        switch (rw){
++            case 0: read=false;
++                    write=false;
++                break;
++            case 1: read=true;
++                write=false;
++                break;
++            case 2: read=false;
++                write=true;
++                break;
++            case 3: read=true;
++                write=true;
++                break;
++            default:
++                read=false;
++                write=false;
++                break;
++        }
++     }
++    public String txtType(){
++        String tipo="";
++        switch(this.tagType) {
++            case 1:
++                tipo = "Boolean";
++                break;
++            case 2:
++                tipo = "Char16";
++                break;
++            case 3:
++                tipo = "Char";
++                break;
++            case 4:
++                tipo = "Double";
++                break;
++            case 5:
++                tipo = "Float";
++                break;
++            case 6:
++                tipo = "Int";
++                break;
++            case 7:
++                tipo = "Long Int";
++                break;
++            case 8:
++                tipo = "Long UInt";
++                break;
++            case 9:
++                tipo = "Short Int";
++                break;
++            case 10:
++                tipo = "Short UInt";
++                break;
++            case 11:
++                tipo = "UInt";
++                break;
++            default:
++                tipo = "PLC Tag";
++            }
++
++
++        return tipo;
++    }
++
++public String tagTostr(){
++    return tagName+"  -  "+tagAddress+" "+S7.GetWordAt(this.value, 0);
++}
++    public String tagInfo(){
++        return tagName+"        "+tagAddress+"      "+txtType();
++    }
++    public static PlcTag createTag(String nome, String address,int tipo){
++        PlcTag tag;
++        switch(tipo) {
++            case 1:
++                tag = new BinaryTag(nome,address);
++                break;
++            case 2:
++                tag = new Char16Tag(nome,address);
++                break;
++            case 3:
++                tag = new CharTag(nome,address);
++                break;
++            case 4:
++                tag = new DoubleTag(nome,address);
++                break;
++            case 5:
++                tag = new FloatTag(nome,address);
++                break;
++            case 6:
++                tag = new IntTag(nome,address);
++                break;
++            case 7:
++                tag = new LongIntTag(nome,address);
++                break;
++            case 8:
++                tag = new LongUIntTag(nome,address);
++                break;
++            case 9:
++                tag = new ShortIntTag(nome,address);
++                break;
++            case 10:
++                tag = new ShortUIntTag(nome,address);
++                break;
++            case 11:
++                tag = new UIntTag(nome,address);
++                break;
++            default:
++                tag = new PlcTag(nome,address);
++        }
++        return tag;
++    }
++    public static int getTipoNum(String tipo){
++        if(tipo.equalsIgnoreCase("Boolean")){
++            return 1;
++        }
++        if(tipo.equalsIgnoreCase("Int")){
++            return 6;
++        }
++        if(tipo.equalsIgnoreCase("UInt")){
++            return 11;
++        }
++        if(tipo.equalsIgnoreCase("Float")){
++            return 5;
++        }
++        if(tipo.equalsIgnoreCase("Char")){
++            return 3;
++        }
++        if(tipo.equalsIgnoreCase("Long Int")){
++            return 7;
++        }
++        if(tipo.equalsIgnoreCase("Long Uint")){
++            return 8;
++        }
++        if(tipo.equalsIgnoreCase("Short Int")){
++            return 9;
++        }
++        if(tipo.equalsIgnoreCase("Short UInt")){
++            return 10;
++        }
++        return 0;
++    }
++    public static PlcTag createTag(String nome, String address,String tipo){
++        PlcTag tag;
++
++        switch(getTipoNum(tipo)) {
++            case 1:
++                if(BinaryTag.checkAddress(address))
++                return new BinaryTag(nome,address);
++                break;
++            case 2:
++                if(Char16Tag.checkAddress(address))
++                    return new Char16Tag(nome,address);
++                break;
++            case 3:
++                if(CharTag.checkAddress(address))
++                    return new CharTag(nome,address);
++                break;
++            case 4:
++                if(DoubleTag.checkAddress(address))
++                    return  new DoubleTag(nome,address);
++                break;
++            case 5:
++                if(FloatTag.checkAddress(address))
++                    return  new FloatTag(nome,address);
++                break;
++            case 6:
++                if(IntTag.checkAddress(address))
++                    return  new IntTag(nome,address);
++                break;
++            case 7:
++                if(LongIntTag.checkAddress(address))
++                    return new LongIntTag(nome,address);
++                break;
++            case 8:
++                if(LongUIntTag.checkAddress(address))
++                    return new LongUIntTag(nome,address);
++                break;
++            case 9:
++                if(ShortIntTag.checkAddress(address))
++                return new ShortIntTag(nome,address);
++                break;
++            case 10:
++                if(ShortUIntTag.checkAddress(address))
++                    return  new ShortUIntTag(nome,address);
++                break;
++            case 11:
++                if(UIntTag.checkAddress(address))
++                    return new UIntTag(nome,address);
++                break;
++            default:
++                if(PlcTag.checkAddress(address))
++                    return new PlcTag(nome,address);
++        }
++        return null;
++    }
++
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/BDCore.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/BDCore.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/BDCore.java	(revision )
+@@ -0,0 +1,70 @@
++package br.ufla.vilelalucas.androidscada;
++
++/**
++ * Created by Lucas on 23/01/2017.
++ */
++import android.content.ContentValues;
++import android.content.Context;
++import android.database.Cursor;
++import android.database.sqlite.SQLiteDatabase;
++import android.database.sqlite.SQLiteOpenHelper;
++
++import java.util.ArrayList;
++
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++
++public class BDCore extends SQLiteOpenHelper {
++    private static final String NOME_BD = "scada";
++    private static final int VERSAO_BD = 10;
++
++
++    public BDCore(Context ctx){
++        super(ctx, NOME_BD, null, VERSAO_BD);
++        }
++
++
++    @Override
++    public void onCreate(SQLiteDatabase bd) {
++        bd.execSQL("create table cadTag(_id integer primary key autoincrement, nome text UNIQUE, endereco text not null, rw integer not null, tipo integer not null );");
++        bd.execSQL("create table plcList(_id integer primary key autoincrement, nome text UNIQUE, ip text not null, rack integer not null, slot integer not null );");
++    }
++
++    @Override
++    public void onUpgrade(SQLiteDatabase bd, int arg1, int arg2) {
++       try {
++           ArrayList<PlcTag> list = new ArrayList<PlcTag>();
++           String[] colunas = new String[]{"_id", "nome", "endereco","tipo"};
++           Cursor cursor = this.getReadableDatabase().query("cadTag", colunas, null, null, null, null, "nome ASC");
++           if(cursor.getCount() > 0){
++           cursor.moveToFirst();
++       do{
++                PlcTag tag = PlcTag.createTag(cursor.getString(1),cursor.getString(2),cursor.getInt(3));
++                tag.setID(cursor.getLong(0));
++                list.add(tag);
++
++            }while(cursor.moveToNext());
++        }
++
++        bd.execSQL("DROP TABLE IF EXISTS cadTag;");
++        bd.execSQL("DROP TABLE IF EXISTS plcList;");
++        for (int i=0;i<list.size();i++){
++            inserir(list.get(i));
++        }
++        onCreate(bd);
++    }catch (Exception e){}
++    }
++    public boolean inserir(PlcTag tag){
++        try {
++            ContentValues valores = new ContentValues();
++            valores.put("nome", tag.getTagName());
++            valores.put("endereco", tag.getTagAddress());
++            valores.put("rw", tag.getRW());
++            valores.put("tipo", tag.getType());
++            this.getWritableDatabase().insertOrThrow("cadTag", null, valores);
++            return true;
++        } catch (Exception ex){
++            return false;
++        }
++    }
++
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/PlcConnection.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/PlcConnection.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/PlcConnection.java	(revision )
+@@ -0,0 +1,145 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.app.Activity;
++import android.content.Context;
++import android.content.Intent;
++import android.support.v4.content.LocalBroadcastManager;
++import android.widget.ListView;
++import android.widget.Toast;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++import br.ufla.vilelalucas.androidscada.Moka7.S7Client;
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++
++/**
++ * Created by Lucas on 04/01/2017.
++ */
++
++public class PlcConnection {
++        private S7Client Client;
++        private String ip;
++        private int rack;
++        private int slot;
++        private String plcName;
++        private long id;
++
++    @Override
++    public int hashCode() {
++        return super.hashCode();
++    }
++    public void setID(long id){
++        this.id=id;
++    }
++    public long getId(){
++        return this.id;
++    }
++
++    public PlcConnection(String ip, int rack, int slot) {
++            this.ip=ip;
++            this.rack=rack;
++            this.slot=slot;
++            Client = new S7Client();
++            this.plcConect();
++            plcName="PLC1";
++        }
++    public PlcConnection(String nome,String ip, int rack, int slot) {
++        this.ip=ip;
++        this.rack=rack;
++        this.slot=slot;
++        Client = new S7Client();
++        this.plcConect();
++        this.plcName=nome;
++    }
++
++    public String getIp() {
++        return ip;
++    }
++
++    public int getRack() {
++        return rack;
++    }
++
++    public int getSlot() {
++        return slot;
++    }
++
++    public String getPlcName() {
++        return plcName;
++    }
++
++    public static int areaMemTag(String tagType){
++        tagType.toUpperCase();
++        if (tagType.startsWith("I")){
++            return S7.S7AreaPE;
++        }
++        if (tagType.startsWith("Q")){
++            return S7.S7AreaPA;
++        }
++        if (tagType.startsWith("M")){
++            return S7.S7AreaMK;
++        }
++        if (tagType.startsWith("DB")){
++            return S7.S7AreaDB;
++        }
++        return 0;
++    }
++    public boolean plcConect(){
++        try {
++
++           //connect to the plc
++            Client.SetConnectionType(S7.OP);
++            if(Client.ConnectTo(ip, rack, slot)==0){
++                Client.ConnectTo(ip, rack, slot);
++                return true;
++            }
++            else{
++                return false;
++            }
++        } catch (Exception e){ return false;}
++    }
++    public boolean tagRead(PlcTag tag){
++        try{
++           byte [] buffer = new byte[tag.getTagSize()];
++            int res;
++                res = Client.ReadArea(tag.getAreaMem(),tag.getDbNumber(),tag.getOffsetAddr(),tag.getTagSize(), buffer);
++
++                if (res ==0) {
++                    tag.setValue(buffer);
++                    return true;
++                }
++                else {
++                    return false;
++                }
++        }catch (Exception e){}
++        return false;
++    }
++
++    public boolean tagWrite(PlcTag tag){
++        try{
++            byte [] buffer = new byte[tag.getTagSize()];
++            S7.SetWordAt(buffer,0,30);
++            int res;
++            res = Client.WriteArea(tag.getAreaMem(),tag.getDbNumber(),tag.getOffsetAddr(),tag.getTagSize(), buffer);
++
++            if (res ==0) {
++                tag.setValue(buffer);
++                return true;
++            }
++            else {
++                return false;
++            }
++        }catch (Exception e){}
++        return false;
++    }
++    public String plcInfo(){
++        return id+"   "+plcName+"  "+ip+"   "+rack+"   "+"    "+slot;
++    }
++
++
++
++
++
++
++
++    }
++
+Index: app/src/main/res/values/dimens.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values/dimens.xml	(revision )
++++ app/src/main/res/values/dimens.xml	(revision )
+@@ -0,0 +1,6 @@
++<resources>
++    <!-- Default screen margins, per the Android Design guidelines. -->
++    <dimen name="activity_horizontal_margin">16dp</dimen>
++    <dimen name="activity_vertical_margin">16dp</dimen>
++    <dimen name="fab_margin">16dp</dimen>
++</resources>
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/FloatTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/FloatTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/FloatTag.java	(revision )
+@@ -0,0 +1,28 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class FloatTag extends PlcTag {
++    public FloatTag (String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(4);
++        byte [] buffer=new byte [4];
++        S7.SetFloatAt(buffer,0,0);
++        super.setValue(buffer);
++    }
++
++    public static boolean checkAddress(String addr) {
++        return check32bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetFloatAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=5;
++    }
++}
+Index: .idea/modules.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/modules.xml	(revision )
++++ .idea/modules.xml	(revision )
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="ProjectModuleManager">
++    <modules>
++      <module fileurl="file://$PROJECT_DIR$/AndroidSCADA.iml" filepath="$PROJECT_DIR$/AndroidSCADA.iml" />
++      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
++    </modules>
++  </component>
++</project>
+\ No newline at end of file
+Index: app/proguard-rules.pro
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/proguard-rules.pro	(revision )
++++ app/proguard-rules.pro	(revision )
+@@ -0,0 +1,17 @@
++# Add project specific ProGuard rules here.
++# By default, the flags in this file are appended to flags specified
++# in C:\Users\Lucas\AppData\Local\Android\Sdk/tools/proguard/proguard-android.txt
++# You can edit the include path and order by changing the proguardFiles
++# directive in build.gradle.
++#
++# For more details, see
++#   http://developer.android.com/guide/developing/tools/proguard.html
++
++# Add any project specific keep options here:
++
++# If your project uses WebView with JS, uncomment the following
++# and specify the fully qualified class name to the JavaScript interface
++# class:
++#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
++#   public *;
++#}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Szl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Szl.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Szl.java	(revision )
+@@ -0,0 +1,21 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++/**
++ *
++ * @author Davide
++ */
++public class S7Szl {
++
++    public int LENTHDR;
++    public int N_DR;
++    public int DataSize;
++    public byte Data[];
++
++    public S7Szl(int BufferSize)
++    {
++        Data = new byte[BufferSize];
++    }
++    protected void Copy(byte[] Src, int SrcPos, int DestPos, int Size)
++    {
++        System.arraycopy(Src, SrcPos, Data, DestPos, Size);
++    }
++}
+Index: gradle/wrapper/gradle-wrapper.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>windows-1252
+===================================================================
+--- gradle/wrapper/gradle-wrapper.properties	(revision )
++++ gradle/wrapper/gradle-wrapper.properties	(revision )
+@@ -0,0 +1,6 @@
++#Mon Dec 28 10:00:20 PST 2015
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-2.14.1-all.zip
+Index: app/.gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/.gitignore	(revision )
++++ app/.gitignore	(revision )
+@@ -0,0 +1,1 @@
++/build
+Index: app/src/test/java/br/ufla/vilelalucas/androidscada/ExampleUnitTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/test/java/br/ufla/vilelalucas/androidscada/ExampleUnitTest.java	(revision )
++++ app/src/test/java/br/ufla/vilelalucas/androidscada/ExampleUnitTest.java	(revision )
+@@ -0,0 +1,17 @@
++package br.ufla.vilelalucas.androidscada;
++
++import org.junit.Test;
++
++import static org.junit.Assert.*;
++
++/**
++ * Example local unit test, which will execute on the development machine (host).
++ *
++ * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
++ */
++public class ExampleUnitTest {
++    @Test
++    public void addition_isCorrect() throws Exception {
++        assertEquals(4, 2 + 2);
++    }
++}
+\ No newline at end of file
+Index: .idea/vcs.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/vcs.xml	(revision )
++++ .idea/vcs.xml	(revision )
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="VcsDirectoryMappings">
++    <mapping directory="$PROJECT_DIR$" vcs="Git" />
++  </component>
++</project>
+\ No newline at end of file
+Index: app/src/main/res/layout/activity_tag_manager.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/layout/activity_tag_manager.xml	(revision )
++++ app/src/main/res/layout/activity_tag_manager.xml	(revision )
+@@ -0,0 +1,186 @@
++<?xml version="1.0" encoding="utf-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:id="@+id/activity_tag_manager"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:paddingBottom="@dimen/activity_vertical_margin"
++    android:paddingLeft="@dimen/activity_horizontal_margin"
++    android:paddingRight="@dimen/activity_horizontal_margin"
++    android:paddingTop="@dimen/activity_vertical_margin"
++    tools:context="br.ufla.vilelalucas.androidscada.TagManagerActivity">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:layout_alignParentBottom="true"
++        android:layout_alignParentLeft="true"
++        android:layout_alignParentStart="true">
++
++        <LinearLayout
++            android:orientation="horizontal"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Endereço da Tag"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/tagAddrView"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="textPersonName"
++                    android:ems="10"
++                    android:id="@+id/tagAddr"
++                    android:layout_weight="1" />
++
++                <TextView
++                    android:text="Nome da Tag"
++                    android:layout_width="match_parent"
++                    android:layout_height="match_parent"
++                    android:id="@+id/nameView"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="textPersonName"
++                    android:ems="10"
++                    android:id="@+id/tagNameText"
++                    android:layout_weight="1" />
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Tipo da variavel"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_weight="1"
++                    android:id="@+id/tipoView" />
++
++                <Spinner
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/spinner"
++                    android:layout_weight="1" />
++
++                <LinearLayout
++                    android:orientation="horizontal"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_weight="1">
++
++                    <LinearLayout
++                        android:orientation="vertical"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:layout_weight="1">
++
++                        <CheckBox
++                            android:text="Read"
++                            android:layout_width="match_parent"
++                            android:layout_height="wrap_content"
++                            android:id="@+id/readBox"
++                            android:layout_weight="1" />
++
++                        <CheckBox
++                            android:text="Write"
++                            android:layout_width="match_parent"
++                            android:layout_height="wrap_content"
++                            android:id="@+id/writeBox"
++                            android:layout_weight="1" />
++
++                    </LinearLayout>
++
++                    <Button
++                        android:text="Cancelar"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:id="@+id/cancelButton"
++                        android:layout_weight="1"
++                        android:onClick="cancelClick"
++                        android:visibility="invisible" />
++
++                </LinearLayout>
++
++            </LinearLayout>
++
++        </LinearLayout>
++
++        <LinearLayout
++            android:orientation="horizontal"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_weight="1">
++
++            <Button
++                android:text="Adicionar"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/addButton"
++                android:onClick="addClick"
++                android:layout_weight="1" />
++
++            <Button
++                android:text="Editar"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/editButton"
++                android:layout_weight="1"
++                android:onClick="editClick" />
++
++            <Button
++                android:text="Excluir"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/exclButton"
++                android:layout_weight="1"
++                android:onClick="deleteClick" />
++
++        </LinearLayout>
++
++        <ListView
++            android:id="@+id/listView"
++            android:cacheColorHint="@color/colorAccent"
++            android:background="#2a0f6e"
++            android:layout_width="match_parent"
++            android:layout_height="288dp"
++            android:layout_marginTop="16dp"
++            app:layout_constraintTop_toBottomOf="@+id/linearLayout2"
++            android:layout_marginStart="16dp"
++            app:layout_constraintLeft_toLeftOf="parent"
++            android:layout_marginLeft="16dp"
++            app:layout_constraintBottom_toTopOf="@+id/button"
++            android:layout_marginBottom="8dp"
++            android:layout_marginEnd="16dp"
++            app:layout_constraintRight_toRightOf="parent"
++            android:layout_marginRight="16dp"
++            android:headerDividersEnabled="false"
++            android:footerDividersEnabled="false"
++            android:clickable="true"
++            android:contextClickable="true"
++            android:listSelector="@color/colorAccent"
++            android:drawSelectorOnTop="false"
++            android:focusable="true"
++            android:focusableInTouchMode="true" />
++    </LinearLayout>
++
++</RelativeLayout>
+Index: .idea/gradle.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/gradle.xml	(revision )
++++ .idea/gradle.xml	(revision )
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="GradleSettings">
++    <option name="linkedExternalProjectsSettings">
++      <GradleProjectSettings>
++        <option name="distributionType" value="LOCAL" />
++        <option name="externalProjectPath" value="$PROJECT_DIR$" />
++        <option name="gradleHome" value="C:\Program Files\Android\Android Studio\gradle\gradle-2.14.1" />
++        <option name="modules">
++          <set>
++            <option value="$PROJECT_DIR$" />
++            <option value="$PROJECT_DIR$/app" />
++          </set>
++        </option>
++        <option name="resolveModulePerSourceSet" value="false" />
++      </GradleProjectSettings>
++    </option>
++  </component>
++</project>
+\ No newline at end of file
+Index: app/src/main/res/layout/activity_alarms.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/layout/activity_alarms.xml	(revision )
++++ app/src/main/res/layout/activity_alarms.xml	(revision )
+@@ -0,0 +1,131 @@
++<?xml version="1.0" encoding="utf-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:id="@+id/activity_alarms"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:paddingBottom="@dimen/activity_vertical_margin"
++    android:paddingLeft="@dimen/activity_horizontal_margin"
++    android:paddingRight="@dimen/activity_horizontal_margin"
++    android:paddingTop="@dimen/activity_vertical_margin"
++    tools:context="br.ufla.vilelalucas.androidscada.AlarmsActivity">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent">
++
++        <TextView
++            android:text="Tag"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:id="@+id/tagText" />
++
++        <Spinner
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:id="@+id/spinnerTag" />
++
++        <LinearLayout
++            android:orientation="horizontal"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="match_parent"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Equipamento"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/textView"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="textPersonName"
++                    android:ems="10"
++                    android:id="@+id/editText"
++                    android:layout_weight="1" />
++            </LinearLayout>
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Área"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/textView2"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="textPersonName"
++                    android:ems="10"
++                    android:id="@+id/editText2"
++                    android:layout_weight="1" />
++            </LinearLayout>
++
++        </LinearLayout>
++
++        <TextView
++            android:text="Mensagem"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:id="@+id/textView3" />
++
++        <EditText
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:inputType="textPersonName"
++            android:ems="10"
++            android:id="@+id/editText3" />
++
++        <LinearLayout
++            android:orientation="horizontal"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content">
++
++            <Button
++                android:text="Adicionar"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/addButton"
++                android:layout_weight="1" />
++
++            <Button
++                android:text="Editar"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/editButton"
++                android:layout_weight="1" />
++
++            <Button
++                android:text="Deletar"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:id="@+id/delButton"
++                android:layout_weight="1" />
++        </LinearLayout>
++
++        <ListView
++            android:layout_width="match_parent"
++            android:layout_height="match_parent"
++            android:background="@color/colorPrimary"
++            android:headerDividersEnabled="false"
++            android:layout_alignParentBottom="true"
++            android:layout_alignParentLeft="true"
++            android:layout_alignParentStart="true" />
++
++    </LinearLayout>
++
++</RelativeLayout>
+Index: gradlew.bat
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gradlew.bat	(revision )
++++ gradlew.bat	(revision )
+@@ -0,0 +1,90 @@
++@if "%DEBUG%" == "" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS=
++
++set DIRNAME=%~dp0
++if "%DIRNAME%" == "" set DIRNAME=.
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if "%ERRORLEVEL%" == "0" goto init
++
++echo.
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++echo.
++echo Please set the JAVA_HOME variable in your environment to match the
++echo location of your Java installation.
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto init
++
++echo.
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
++echo.
++echo Please set the JAVA_HOME variable in your environment to match the
++echo location of your Java installation.
++
++goto fail
++
++:init
++@rem Get command-line arguments, handling Windowz variants
++
++if not "%OS%" == "Windows_NT" goto win9xME_args
++if "%@eval[2+2]" == "4" goto 4NT_args
++
++:win9xME_args
++@rem Slurp the command line arguments.
++set CMD_LINE_ARGS=
++set _SKIP=2
++
++:win9xME_args_slurp
++if "x%~1" == "x" goto execute
++
++set CMD_LINE_ARGS=%*
++goto execute
++
++:4NT_args
++@rem Get arguments from the 4NT Shell from JP Software
++set CMD_LINE_ARGS=%$
++
++:execute
++@rem Setup the command line
++
++set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %CMD_LINE_ARGS%
++
++:end
++@rem End local scope for the variables with windows NT shell
++if "%ERRORLEVEL%"=="0" goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++if  not "" == "%GRADLE_EXIT_CONSOLE%" exit 1
++exit /b 1
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+Index: settings.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- settings.gradle	(revision )
++++ settings.gradle	(revision )
+@@ -0,0 +1,1 @@
++include ':app'
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/DoubleTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/DoubleTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/DoubleTag.java	(revision )
+@@ -0,0 +1,24 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class DoubleTag extends PlcTag {
++    public DoubleTag (String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(8);
++    }
++    public static boolean checkAddress(String addr) {
++        return check64bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetFloatAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=4;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Protection.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Protection.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Protection.java	(revision )
+@@ -0,0 +1,18 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++// See ยง33.19 of "System Software for S7-300/400 System and Standard Functions"
++public class S7Protection {
++    public int sch_schal;
++    public int sch_par;
++    public int sch_rel;
++    public int bart_sch;
++    public int anl_sch;
++    protected void Update(byte[] Src)
++    {
++        sch_schal = S7.GetWordAt(Src,2);
++        sch_par   = S7.GetWordAt(Src,4);
++        sch_rel   = S7.GetWordAt(Src,6);
++        bart_sch  = S7.GetWordAt(Src,8);
++        anl_sch   = S7.GetWordAt(Src,10);
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpInfo.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7CpInfo.java	(revision )
+@@ -0,0 +1,22 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++
++/**
++ *
++ * @author Davide
++ */
++public class S7CpInfo {
++
++    public int MaxPduLength;
++    public int MaxConnections;
++    public int MaxMpiRate;
++    public int MaxBusRate;
++
++    protected void Update(byte[] Src, int Pos)
++    {
++        MaxPduLength = S7.GetShortAt(Src, 2);
++        MaxConnections = S7.GetShortAt(Src, 4);
++        MaxMpiRate = S7.GetDIntAt(Src, 6);
++        MaxBusRate = S7.GetDIntAt(Src, 10);
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/AlarmsActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/AlarmsActivity.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/AlarmsActivity.java	(revision )
+@@ -0,0 +1,13 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.support.v7.app.AppCompatActivity;
++import android.os.Bundle;
++
++public class AlarmsActivity extends AppCompatActivity {
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setContentView(R.layout.activity_alarms);
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/BDTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/BDTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/BDTag.java	(revision )
+@@ -0,0 +1,101 @@
++package br.ufla.vilelalucas.androidscada;
++
++/**
++ * Created by Lucas on 23/01/2017.
++ */
++import java.util.ArrayList;
++import java.util.List;
++
++import android.content.ContentValues;
++import android.content.Context;
++import android.database.Cursor;
++import android.database.sqlite.SQLiteDatabase;
++import android.database.sqlite.SQLiteException;
++import android.nfc.Tag;
++
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++
++public class BDTag {
++    private SQLiteDatabase bd;
++
++    public BDTag(Context context){
++        BDCore auxBd = new BDCore(context);
++        bd = auxBd.getWritableDatabase();
++    }
++
++
++    public boolean inserir(PlcTag tag){
++        try {
++            ContentValues valores = new ContentValues();
++            valores.put("nome", tag.getTagName());
++            valores.put("endereco", tag.getTagAddress());
++            valores.put("rw", tag.getRW());
++            valores.put("tipo", tag.getType());
++            bd.insertOrThrow("cadTag", null, valores);
++            return true;
++        } catch (Exception ex){
++            return false;
++        }
++    }
++
++
++    public boolean atualizar(PlcTag tag){
++     try{
++        ContentValues valores = new ContentValues();
++        valores.put("nome", tag.getTagName());
++        valores.put("endereco", tag.getTagAddress());
++        valores.put("rw", tag.getRW());
++        valores.put("tipo",tag.getType());
++        bd.update("cadTag", valores, "_id = ?", new String[]{""+tag.getID()});
++        return true;
++    } catch (Exception ex){
++        return false;
++    }
++    }
++
++
++    public void deletar(PlcTag tag){
++        try{
++        bd.delete("cadTag", "_id = "+tag.getID(), null);}catch (Exception e){}
++    }
++
++
++    public ArrayList<PlcTag> buscar(){
++        ArrayList<PlcTag> list = new ArrayList<PlcTag>();
++        String[] colunas = new String[]{"_id", "nome", "endereco","tipo"};
++
++        Cursor cursor = bd.query("cadTag", colunas, null, null, null, null, "nome ASC");
++
++        if(cursor.getCount() > 0){
++            cursor.moveToFirst();
++
++            do{
++                PlcTag tag = PlcTag.createTag(cursor.getString(1),cursor.getString(2),cursor.getInt(3));
++                tag.setID(cursor.getLong(0));
++                list.add(tag);
++
++            }while(cursor.moveToNext());
++        }
++
++        return(list);
++    }
++    public ArrayList<PlcTag> buscar(long id){
++        ArrayList<PlcTag> list = new ArrayList<PlcTag>();
++        String[] colunas = new String[]{"_id", "nome", "endereco","tipo"};
++
++        Cursor cursor = bd.query("cadTag", colunas, null, null, null, null, "nome ASC");
++
++        if(cursor.getCount() > 0){
++            cursor.moveToFirst();
++
++            do{
++                PlcTag tag = PlcTag.createTag(cursor.getString(1),cursor.getString(2),cursor.getInt(3));
++                tag.setID(cursor.getLong(0));
++                list.add(tag);
++
++            }while(cursor.moveToNext());
++        }
++
++        return(list);
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortUIntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortUIntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/ShortUIntTag.java	(revision )
+@@ -0,0 +1,26 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class ShortUIntTag extends PlcTag {
++    public ShortUIntTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(1);
++    }
++
++    public static boolean checkAddress(String addr) {
++        return check8bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetShortAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=10;
++    }
++
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7BlockInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7BlockInfo.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7BlockInfo.java	(revision )
+@@ -0,0 +1,83 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++
++import java.util.Date;
++/**
++ *
++ * @author Davide
++ */
++public class S7BlockInfo {
++
++    private final int BufSize = 96;
++    // MilliSeconds between 1970/1/1 (Java time base) and 1984/1/1 (Siemens base)
++    private final long DeltaMilliSecs = 441763200000L;
++    protected byte[] Buffer = new byte[BufSize];
++
++    protected void Update(byte[] Src, int Pos)
++    {
++        System.arraycopy(Src, Pos, Buffer, 0, BufSize);
++    }
++    public int BlkType()
++    {
++        return Buffer[2];
++    }
++    public int BlkNumber()
++    {
++        return S7.GetWordAt(Buffer, 3);
++    }
++    public int BlkLang()
++    {
++        return Buffer[1];
++    }
++    public int BlkFlags()
++    {
++        return Buffer[0];
++    }
++    public int MC7Size()  // The real size in bytes
++    {
++        return S7.GetWordAt(Buffer, 31);
++    }
++    public int LoadSize()
++    {
++        return S7.GetDIntAt(Buffer, 5);
++    }
++    public int LocalData()
++    {
++        return S7.GetWordAt(Buffer, 29);
++    }
++    public int SBBLength()
++    {
++        return S7.GetWordAt(Buffer, 25);
++    }
++    public int Checksum()
++    {
++        return S7.GetWordAt(Buffer, 59);
++    }
++    public int Version()
++    {
++        return Buffer[57];
++    }
++    public Date CodeDate()
++    {
++        long BlockDate = ((long)S7.GetWordAt(Buffer, 17))*86400000L+DeltaMilliSecs;
++        return new Date(BlockDate);
++    }
++    public Date IntfDate()
++    {
++        long BlockDate = ((long)S7.GetWordAt(Buffer, 23))*86400000L+DeltaMilliSecs;
++        return new Date(BlockDate);
++    }
++    public String Author()
++    {
++        return S7.GetStringAt(Buffer,33,8);
++    }
++    public String Family()
++    {
++        return S7.GetStringAt(Buffer,41,8);
++    }
++    public String Header()
++    {
++        return S7.GetStringAt(Buffer,49,8);
++    }
++
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/IntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/IntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/IntTag.java	(revision )
+@@ -0,0 +1,24 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class IntTag extends PlcTag {
++    public IntTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(2);
++    }
++    public static boolean checkAddress(String addr) {
++        return check16bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetWordAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=6;
++    }
++}
+Index: .gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .gitignore	(revision )
++++ .gitignore	(revision )
+@@ -0,0 +1,9 @@
++*.iml
++.gradle
++/local.properties
++/.idea/workspace.xml
++/.idea/libraries
++.DS_Store
++/build
++/captures
++.externalNativeBuild
+Index: .idea/copyright/profiles_settings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/copyright/profiles_settings.xml	(revision )
++++ .idea/copyright/profiles_settings.xml	(revision )
+@@ -0,0 +1,3 @@
++<component name="CopyrightManager">
++  <settings default="" />
++</component>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/misc.xml	(revision )
++++ .idea/misc.xml	(revision )
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="EntryPointsManager">
++    <entry_points version="2.0" />
++  </component>
++  <component name="NullableNotNullManager">
++    <option name="myDefaultNullable" value="android.support.annotation.Nullable" />
++    <option name="myDefaultNotNull" value="android.support.annotation.NonNull" />
++    <option name="myNullables">
++      <value>
++        <list size="4">
++          <item index="0" class="java.lang.String" itemvalue="org.jetbrains.annotations.Nullable" />
++          <item index="1" class="java.lang.String" itemvalue="javax.annotation.Nullable" />
++          <item index="2" class="java.lang.String" itemvalue="edu.umd.cs.findbugs.annotations.Nullable" />
++          <item index="3" class="java.lang.String" itemvalue="android.support.annotation.Nullable" />
++        </list>
++      </value>
++    </option>
++    <option name="myNotNulls">
++      <value>
++        <list size="4">
++          <item index="0" class="java.lang.String" itemvalue="org.jetbrains.annotations.NotNull" />
++          <item index="1" class="java.lang.String" itemvalue="javax.annotation.Nonnull" />
++          <item index="2" class="java.lang.String" itemvalue="edu.umd.cs.findbugs.annotations.NonNull" />
++          <item index="3" class="java.lang.String" itemvalue="android.support.annotation.NonNull" />
++        </list>
++      </value>
++    </option>
++  </component>
++  <component name="ProjectLevelVcsManager" settingsEditedManually="false">
++    <OptionsSetting value="true" id="Add" />
++    <OptionsSetting value="true" id="Remove" />
++    <OptionsSetting value="true" id="Checkout" />
++    <OptionsSetting value="true" id="Update" />
++    <OptionsSetting value="true" id="Status" />
++    <OptionsSetting value="true" id="Edit" />
++    <ConfirmationsSetting value="0" id="Add" />
++    <ConfirmationsSetting value="0" id="Remove" />
++  </component>
++  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_7" default="true" assert-keyword="true" jdk-15="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
++    <output url="file://$PROJECT_DIR$/build/classes" />
++  </component>
++  <component name="ProjectType">
++    <option name="id" value="Android" />
++  </component>
++</project>
+\ No newline at end of file
+Index: gradlew
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- gradlew	(revision )
++++ gradlew	(revision )
+@@ -0,0 +1,160 @@
++#!/usr/bin/env bash
++
++##############################################################################
++##
++##  Gradle start up script for UN*X
++##
++##############################################################################
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS=""
++
++APP_NAME="Gradle"
++APP_BASE_NAME=`basename "$0"`
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD="maximum"
++
++warn ( ) {
++    echo "$*"
++}
++
++die ( ) {
++    echo
++    echo "$*"
++    echo
++    exit 1
++}
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++case "`uname`" in
++  CYGWIN* )
++    cygwin=true
++    ;;
++  Darwin* )
++    darwin=true
++    ;;
++  MINGW* )
++    msys=true
++    ;;
++esac
++
++# Attempt to set APP_HOME
++# Resolve links: $0 may be a link
++PRG="$0"
++# Need this for relative symlinks.
++while [ -h "$PRG" ] ; do
++    ls=`ls -ld "$PRG"`
++    link=`expr "$ls" : '.*-> \(.*\)$'`
++    if expr "$link" : '/.*' > /dev/null; then
++        PRG="$link"
++    else
++        PRG=`dirname "$PRG"`"/$link"
++    fi
++done
++SAVED="`pwd`"
++cd "`dirname \"$PRG\"`/" >/dev/null
++APP_HOME="`pwd -P`"
++cd "$SAVED" >/dev/null
++
++CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD="$JAVA_HOME/jre/sh/java"
++    else
++        JAVACMD="$JAVA_HOME/bin/java"
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD="java"
++    which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++fi
++
++# Increase the maximum file descriptors if we can.
++if [ "$cygwin" = "false" -a "$darwin" = "false" ] ; then
++    MAX_FD_LIMIT=`ulimit -H -n`
++    if [ $? -eq 0 ] ; then
++        if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
++            MAX_FD="$MAX_FD_LIMIT"
++        fi
++        ulimit -n $MAX_FD
++        if [ $? -ne 0 ] ; then
++            warn "Could not set maximum file descriptor limit: $MAX_FD"
++        fi
++    else
++        warn "Could not query maximum file descriptor limit: $MAX_FD_LIMIT"
++    fi
++fi
++
++# For Darwin, add options to specify how the application appears in the dock
++if $darwin; then
++    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
++fi
++
++# For Cygwin, switch paths to Windows format before running java
++if $cygwin ; then
++    APP_HOME=`cygpath --path --mixed "$APP_HOME"`
++    CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
++    JAVACMD=`cygpath --unix "$JAVACMD"`
++
++    # We build the pattern for arguments to be converted via cygpath
++    ROOTDIRSRAW=`find -L / -maxdepth 1 -mindepth 1 -type d 2>/dev/null`
++    SEP=""
++    for dir in $ROOTDIRSRAW ; do
++        ROOTDIRS="$ROOTDIRS$SEP$dir"
++        SEP="|"
++    done
++    OURCYGPATTERN="(^($ROOTDIRS))"
++    # Add a user-defined pattern to the cygpath arguments
++    if [ "$GRADLE_CYGPATTERN" != "" ] ; then
++        OURCYGPATTERN="$OURCYGPATTERN|($GRADLE_CYGPATTERN)"
++    fi
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    i=0
++    for arg in "$@" ; do
++        CHECK=`echo "$arg"|egrep -c "$OURCYGPATTERN" -`
++        CHECK2=`echo "$arg"|egrep -c "^-"`                                 ### Determine if an option
++
++        if [ $CHECK -ne 0 ] && [ $CHECK2 -eq 0 ] ; then                    ### Added a condition
++            eval `echo args$i`=`cygpath --path --ignore --mixed "$arg"`
++        else
++            eval `echo args$i`="\"$arg\""
++        fi
++        i=$((i+1))
++    done
++    case $i in
++        (0) set -- ;;
++        (1) set -- "$args0" ;;
++        (2) set -- "$args0" "$args1" ;;
++        (3) set -- "$args0" "$args1" "$args2" ;;
++        (4) set -- "$args0" "$args1" "$args2" "$args3" ;;
++        (5) set -- "$args0" "$args1" "$args2" "$args3" "$args4" ;;
++        (6) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" ;;
++        (7) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" ;;
++        (8) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" ;;
++        (9) set -- "$args0" "$args1" "$args2" "$args3" "$args4" "$args5" "$args6" "$args7" "$args8" ;;
++    esac
++fi
++
++# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
++function splitJvmOpts() {
++    JVM_OPTS=("$@")
++}
++eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
++JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
++
++exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+Index: app/src/main/res/values/styles.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values/styles.xml	(revision )
++++ app/src/main/res/values/styles.xml	(revision )
+@@ -0,0 +1,20 @@
++<resources>
++
++    <!-- Base application theme. -->
++    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
++        <!-- Customize your theme here. -->
++        <item name="colorPrimary">@color/colorPrimary</item>
++        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
++        <item name="colorAccent">@color/colorAccent</item>
++    </style>
++
++    <style name="AppTheme.NoActionBar">
++        <item name="windowActionBar">false</item>
++        <item name="windowNoTitle">true</item>
++    </style>
++
++    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
++
++    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
++
++</resources>
+Index: .idea/runConfigurations.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/runConfigurations.xml	(revision )
++++ .idea/runConfigurations.xml	(revision )
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="RunConfigurationProducerService">
++    <option name="ignoredProducers">
++      <set>
++        <option value="org.jetbrains.plugins.gradle.execution.test.runner.AllInPackageGradleConfigurationProducer" />
++        <option value="org.jetbrains.plugins.gradle.execution.test.runner.TestClassGradleConfigurationProducer" />
++        <option value="org.jetbrains.plugins.gradle.execution.test.runner.TestMethodGradleConfigurationProducer" />
++      </set>
++    </option>
++  </component>
++</project>
+\ No newline at end of file
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7OrderCode.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7OrderCode.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7OrderCode.java	(revision )
+@@ -0,0 +1,26 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++/**
++ *
++ * @author Davide
++ */
++public class S7OrderCode {
++
++    public int V1;
++    public int V2;
++    public int V3;
++    protected byte[] Buffer = new byte[1024];
++
++    protected void Update(byte[] Src, int Pos, int Size)
++    {
++        System.arraycopy(Src, Pos, Buffer, 0, Size);
++        V1 = (byte) Src[Size-3];
++        V2 = (byte) Src[Size-2];
++        V3 = (byte) Src[Size-1];
++    }
++
++    public String Code()
++    {
++        return S7.GetStringAt(Buffer, 2, 20);
++    }
++}
+\ No newline at end of file
+Index: app/src/main/res/values/colors.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values/colors.xml	(revision )
++++ app/src/main/res/values/colors.xml	(revision )
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <color name="colorPrimary">#3f51b5</color>
++    <color name="colorPrimaryDark">#303F9F</color>
++    <color name="colorAccent">#ff4081</color>
++</resources>
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/MainActivity.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/MainActivity.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/MainActivity.java	(revision )
+@@ -0,0 +1,253 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.app.Activity;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.os.Bundle;
++import android.os.Handler;
++import android.support.v4.content.LocalBroadcastManager;
++import android.support.v4.widget.SimpleCursorAdapter;
++import android.view.View;
++import android.view.ViewDebug;
++import android.widget.ArrayAdapter;
++import android.widget.EditText;
++import android.widget.ListView;
++import android.widget.Spinner;
++import android.widget.Toast;
++
++
++import java.io.IOException;
++import java.util.ArrayList;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++import br.ufla.vilelalucas.androidscada.Moka7.S7Client;
++import br.ufla.vilelalucas.androidscada.Tags.BinaryTag;
++import br.ufla.vilelalucas.androidscada.Tags.Char16Tag;
++import br.ufla.vilelalucas.androidscada.Tags.CharTag;
++import br.ufla.vilelalucas.androidscada.Tags.FloatTag;
++import br.ufla.vilelalucas.androidscada.Tags.IntTag;
++import br.ufla.vilelalucas.androidscada.Tags.LongIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.LongUIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.PlcTag;
++import br.ufla.vilelalucas.androidscada.Tags.ShortIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.ShortUIntTag;
++import br.ufla.vilelalucas.androidscada.Tags.UIntTag;
++
++public class MainActivity extends Activity {
++    /**
++     * ATTENTION: This was auto-generated to implement the App Indexing API.
++     * See https://g.co/AppIndexing/AndroidStudio for more information.
++     */
++    public EditText ipText;
++    public EditText rackText;
++    public EditText slotText;
++    public EditText tagNameText;
++    public EditText tagAddrText;
++    public Spinner spinner;
++    ListView lv;
++    public String[] lvStr = new String[] {"Teste 1", "Teste 2"};
++
++
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setContentView(R.layout.activity_main);
++        // ATTENTION: This was auto-generated to implement the App Indexing API.
++        // See https://g.co/AppIndexing/AndroidStudio for more information.
++        LocalBroadcastManager.getInstance(this).registerReceiver(notifyTextReceiver,
++                new IntentFilter("notifyText"));
++        ipText   = (EditText)findViewById(R.id.ipText);
++        slotText   = (EditText)findViewById(R.id.slotText);
++        rackText   = (EditText)findViewById(R.id.rackText);
++       lv=(ListView)findViewById(R.id.listView);
++        listaTags();
++        setPlc();
++
++
++
++    }
++    public void listaTags(){
++        BDTag bd = new BDTag(this);
++
++        ArrayList<PlcTag> lista=bd.buscar();
++        String[] str=new String [lista.size()];
++        for(int k=0;k<lista.size();k++){
++            str[k]=lista.get(k).tagTostr();
++        }
++        lv.setAdapter(new ArrayAdapter<String>(getApplicationContext(), android.R.layout.test_list_item, str));
++    }
++    public PlcTag readTag(){
++        try{
++        String item=spinner.getSelectedItem().toString();
++        String tagAdd=tagAddrText.getText().toString();
++        String tagN=tagNameText.getText().toString();
++        if(item.equalsIgnoreCase("Boolean")&&BinaryTag.checkAddress(tagAdd)){
++            return new BinaryTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Int")&&IntTag.checkAddress(tagAdd)){
++            return new IntTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("UInt")&&UIntTag.checkAddress(tagAdd)){
++            return new UIntTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Float")&&FloatTag.checkAddress(tagAdd)){
++            return new FloatTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Char")&&CharTag.checkAddress(tagAdd)){
++            return new CharTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Double Int")&&LongIntTag.checkAddress(tagAdd)){
++            return new LongIntTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Double Uint")&&LongUIntTag.checkAddress(tagAdd)){
++            return new LongUIntTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Short Int")&&ShortIntTag.checkAddress(tagAdd)){
++            return new ShortIntTag(tagN,tagAdd);
++        }
++        if(item.equalsIgnoreCase("Short UInt")&&ShortUIntTag.checkAddress(tagAdd)){
++            return new ShortUIntTag(tagN,tagAdd);
++        }return null;
++        }
++        catch (Exception e){
++       return null;
++        }
++    }
++
++    public void addClick(View view){
++        BDTag bd = new BDTag(this);
++        bd.inserir(readTag());
++        System.out.println("ADD");
++        listaTags();
++    }
++    public void TagManClick(View view){
++        Intent secondActivity = new Intent(this, TagManagerActivity.class);
++        startActivity(secondActivity);
++    }
++
++    public void conectarClick(View view) throws IOException {
++        Intent i = new Intent("notifyText");
++
++        try {
++            String ip=ipText.getText().toString();
++            int rack= Integer.parseInt(rackText.getText().toString());
++            int slot= Integer.parseInt(slotText.getText().toString());
++            BDPlc bdPlc= new BDPlc(this);
++            PlcConnection plc=bdPlc.buscarPlc();
++            PlcCon p = new PlcCon(plc.getIp(),plc.getRack(),plc.getSlot(),new BDTag(this).buscar());
++            p.read = true;
++            new Thread(p).start();
++        }catch(Exception e){
++            i.putExtra("Message", "Endereço inválido!");
++            LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(i);
++        }
++        listaTags();
++    }
++    public void setPlc(){
++        BDPlc bdPlc= new BDPlc(this);
++        PlcConnection plc=bdPlc.buscarPlc();
++            ipText.setText(plc.getIp());
++            rackText.setText("" + plc.getRack());
++            slotText.setText("" + plc.getSlot());
++
++    }
++    public void editarPlcClick(View view){
++        BDPlc bdPlc= new BDPlc(this);
++        String ip=ipText.getText().toString();
++        if(ip.equalsIgnoreCase("0.0.0.0")) {
++            bdPlc.inserir(new PlcConnection("192.168.0.10", 0, 2));
++            setPlc();
++        }
++        else {
++        int rack= Integer.parseInt(rackText.getText().toString());
++        int slot= Integer.parseInt(slotText.getText().toString());
++        PlcConnection p = new PlcConnection(ip,rack,slot);
++        p.setID(1);
++        bdPlc.atualizar(p);
++    }}
++
++
++    private BroadcastReceiver notifyTextReceiver = new BroadcastReceiver() {
++        @Override
++        public void onReceive(Context context, Intent intent) {
++            Toast t = Toast.makeText(getApplicationContext(), intent.getStringExtra("Message"), Toast.LENGTH_SHORT);
++            t.show();
++        }
++    };
++
++    public class PlcCon implements Runnable {
++        private S7Client Client;
++        public boolean read = false;
++        public boolean write = false;
++        public String IpAddr;
++        public int rack;
++        public int slot;
++        byte[] buffer;
++        Intent i;
++        ArrayList <PlcTag> lista;
++
++
++        public PlcCon(String IpAddr,int rack,int slot,ArrayList <PlcTag>lista) {
++            Client = new S7Client();
++            buffer = new byte[2];
++            i = new Intent("notifyText");
++            this.IpAddr = IpAddr;
++            this.rack = rack;
++            this.slot = slot;
++
++            this.lista=lista;
++
++        }
++
++
++        public void run() {
++
++            int res=0;
++
++
++            //collect connection data
++
++
++            try {
++                PlcConnection plc= new PlcConnection(IpAddr,rack,slot);
++                i.putExtra("Message", "Conectando ao IP:"+IpAddr);
++
++                LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(i);
++                if (plc.plcConect()) {
++                    i.putExtra("Message", "Conexão estabelecida!");
++                    LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(i);
++                    lvStr=new String[lista.size()];
++                    for (int k = 0; k < lista.size(); k++){
++                        if(lista.get(k).getRead()){
++                        if (plc.tagRead(lista.get(k))) {
++                            try {
++                                lvStr[k]=lista.get(k).tagTostr();
++                                System.out.println(lvStr[k]);
++                            }catch (Exception e){
++                                lvStr[k]=lista.get(k).getTagName()+"-"+lista.get(k).getTagAddress()+":Erro de leitura";
++                                System.out.println(lvStr[k]);
++                            }
++                        } else {
++                            System.out.println("Erro de leitura:"+lista.get(k).getAddress());
++                        }
++                    }}
++                } else {
++                    String err = String.format("%s - Connection error: %x - %s", IpAddr, res, S7Client.ErrorText(res));
++                    System.out.println(err);
++                    i.putExtra("Message", err);
++                    LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(i);
++                }
++            }catch (Exception e){
++                String err = String.format("%s - Connection error: %x - %s", IpAddr, res, S7Client.ErrorText(res));
++                i.putExtra("Message", err);
++                LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(i);
++
++            }
++        }
++
++
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7.java	(revision )
+@@ -0,0 +1,268 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++
++import java.io.UnsupportedEncodingException;
++import java.util.Date;
++import java.util.Calendar;
++
++/**
++ *
++ * @author Davide
++ */
++
++
++// Step 7 Constants and Conversion helper class
++public class S7 {
++    // S7 ID Area (Area that we want to read/write)
++    public static final int S7AreaPE = 0x81;
++    public static final int S7AreaPA = 0x82;
++    public static final int S7AreaMK = 0x83;
++    public static final int S7AreaDB = 0x84;
++    public static final int S7AreaCT = 0x1C;
++    public static final int S7AreaTM = 0x1D;
++    // Connection types
++    public static final byte PG = 0x01;
++    public static final byte OP = 0x02;
++    public static final byte S7_BASIC = 0x03;
++    // Block type
++    public static final int Block_OB   = 0x38;
++    public static final int Block_DB   = 0x41;
++    public static final int Block_SDB  = 0x42;
++    public static final int Block_FC   = 0x43;
++    public static final int Block_SFC  = 0x44;
++    public static final int Block_FB   = 0x45;
++    public static final int Block_SFB  = 0x46;
++    // Sub Block Type
++    public static final int SubBlk_OB  = 0x08;
++    public static final int SubBlk_DB  = 0x0A;
++    public static final int SubBlk_SDB = 0x0B;
++    public static final int SubBlk_FC  = 0x0C;
++    public static final int SubBlk_SFC = 0x0D;
++    public static final int SubBlk_FB  = 0x0E;
++    public static final int SubBlk_SFB = 0x0F;
++    // Block languages
++    public static final int BlockLangAWL       = 0x01;
++    public static final int BlockLangKOP       = 0x02;
++    public static final int BlockLangFUP       = 0x03;
++    public static final int BlockLangSCL       = 0x04;
++    public static final int BlockLangDB        = 0x05;
++    public static final int BlockLangGRAPH     = 0x06;
++    // PLC Status
++    public static final int S7CpuStatusUnknown = 0x00;
++    public static final int S7CpuStatusRun     = 0x08;
++    public static final int S7CpuStatusStop    = 0x04;
++    // Type Var
++    public static final int S7TypeBool = 1;
++    public static final int S7TypeInt = 1;
++
++    // Returns the bit at Pos.Bit
++    public static boolean GetBitAt(byte[] Buffer, int Pos, int Bit)
++    {
++        int Value = Buffer[Pos] & 0x0FF;
++        byte[] Mask = {
++                (byte)0x01,(byte)0x02,(byte)0x04,(byte)0x08,
++                (byte)0x10,(byte)0x10,(byte)0x40,(byte)0x80
++        };
++        if (Bit<0) Bit=0;
++        if (Bit>7) Bit=7;
++
++        return (Value & Mask[Bit])!=0;
++    }
++    /**
++     * Returns a 16 bit unsigned value : from 0 to 65535 (2^16-1)
++     * @param Buffer
++     * @param Pos start position
++     * @return
++     */
++    public static int GetWordAt(byte[] Buffer, int Pos)
++    {
++        int hi = (Buffer[Pos] & 0x00FF);
++        int lo = (Buffer[Pos+1] & 0x00FF);
++        return (hi<<8)+lo;
++    }
++
++    // Returns a 16 bit signed value : from -32768 to 32767
++    public static int GetShortAt(byte[] Buffer, int Pos)
++    {
++        int hi = (Buffer[Pos]);
++        int lo = (Buffer[Pos+1] & 0x00FF);
++        return ((hi<<8)+lo);
++    }
++
++    // Returns a 32 bit unsigned value : from 0 to 4294967295 (2^32-1)
++    public static long GetDWordAt(byte[] Buffer, int Pos)
++    {
++        long Result;
++        Result=(long)(Buffer[Pos] & 0x0FF);
++        Result<<=8;
++        Result+=(long)(Buffer[Pos+1] & 0x0FF);
++        Result<<=8;
++        Result+=(long)(Buffer[Pos+2] & 0x0FF);
++        Result<<=8;
++        Result+=(long)(Buffer[Pos+3] & 0x0FF);
++        return Result;
++    }
++
++    // Returns a 32 bit signed value : from 0 to 4294967295 (2^32-1)
++    public static int GetDIntAt(byte[] Buffer, int Pos)
++    {
++        int Result;
++        Result=  Buffer[Pos];
++        Result<<=8;
++        Result+=(Buffer[Pos+1] & 0x0FF);
++        Result<<=8;
++        Result+=(Buffer[Pos+2] & 0x0FF);
++        Result<<=8;
++        Result+=(Buffer[Pos+3] & 0x0FF);
++        return Result;
++    }
++
++    // Returns a 32 bit floating point
++    public static float GetFloatAt(byte[] Buffer, int Pos)
++    {
++        int IntFloat = GetDIntAt(Buffer, Pos);
++        return Float.intBitsToFloat(IntFloat);
++    }
++
++    // Returns an ASCII string
++    public static String GetStringAt(byte[] Buffer, int Pos, int MaxLen)
++    {
++        byte[] StrBuffer = new byte[MaxLen];
++        System.arraycopy(Buffer, Pos, StrBuffer, 0, MaxLen);
++        String S;
++        try {
++            S = new String(StrBuffer, "UTF-8"); // the charset is UTF-8
++        } catch (UnsupportedEncodingException ex) {
++            S = "";
++        }
++        return S;
++    }
++
++    public static String GetPrintableStringAt(byte[] Buffer, int Pos, int MaxLen)
++    {
++        byte[] StrBuffer = new byte[MaxLen];
++        System.arraycopy(Buffer, Pos, StrBuffer, 0, MaxLen);
++        for (int c = 0; c < MaxLen; c++)
++        {
++            if ((StrBuffer[c]<31) || (StrBuffer[c]>126))
++                StrBuffer[c]=46; // '.'
++        }
++        String S;
++        try {
++            S = new String(StrBuffer, "UTF-8"); // the charset is UTF-8
++        } catch (UnsupportedEncodingException ex) {
++            S = "";
++        }
++        return S;
++    }
++
++    public static Date GetDateAt(byte[] Buffer, int Pos)
++    {
++        int Year, Month, Day, Hour, Min, Sec;
++        Calendar S7Date = Calendar.getInstance();
++
++        Year = S7.BCDtoByte(Buffer[Pos]);
++        if (Year<90)
++            Year+=2000;
++        else
++            Year+=1900;
++
++        Month=S7.BCDtoByte(Buffer[Pos+1])-1;
++        Day  =S7.BCDtoByte(Buffer[Pos+2]);
++        Hour =S7.BCDtoByte(Buffer[Pos+3]);
++        Min  =S7.BCDtoByte(Buffer[Pos+4]);
++        Sec  =S7.BCDtoByte(Buffer[Pos+5]);
++
++        S7Date.set(Year, Month, Day, Hour, Min, Sec);
++
++        return S7Date.getTime();
++    }
++
++    public static void SetBitAt(byte[] Buffer, int Pos, int Bit, boolean Value)
++    {
++        byte[] Mask = {
++                (byte)0x01,(byte)0x02,(byte)0x04,(byte)0x08,
++                (byte)0x10,(byte)0x20,(byte)0x40,(byte)0x80
++        };
++        if (Bit<0) Bit=0;
++        if (Bit>7) Bit=7;
++
++        if (Value)
++            Buffer[Pos]= (byte) (Buffer[Pos] | Mask[Bit]);
++        else
++            Buffer[Pos]= (byte) (Buffer[Pos] & ~Mask[Bit]);
++    }
++
++    public static void SetWordAt(byte[] Buffer, int Pos, int Value)
++    {
++        int Word = Value & 0x0FFFF;
++        Buffer[Pos]   = (byte) (Word >> 8);
++        Buffer[Pos+1] = (byte) (Word & 0x00FF);
++    }
++
++    public static void SetShortAt(byte[] Buffer, int Pos, int Value)
++    {
++        Buffer[Pos]   = (byte) (Value >> 8);
++        Buffer[Pos+1] = (byte) (Value & 0x00FF);
++    }
++    public static void SetDWordAt(byte[] Buffer, int Pos, long Value)
++    {
++        long DWord = Value &0x0FFFFFFFF;
++        Buffer[Pos+3] = (byte) (DWord &0xFF);
++        Buffer[Pos+2] = (byte) ((DWord >> 8) &0xFF);
++        Buffer[Pos+1] = (byte) ((DWord >> 16) &0xFF);
++        Buffer[Pos]   = (byte) ((DWord >> 24) &0xFF);
++    }
++
++    public static void SetDIntAt(byte[] Buffer, int Pos, int Value)
++    {
++        Buffer[Pos+3] = (byte) (Value &0xFF);
++        Buffer[Pos+2] = (byte) ((Value >> 8) &0xFF);
++        Buffer[Pos+1] = (byte) ((Value >> 16) &0xFF);
++        Buffer[Pos]   = (byte) ((Value >> 24) &0xFF);
++    }
++
++    public static void SetFloatAt(byte[] Buffer, int Pos, float Value)
++    {
++        int DInt = Float.floatToIntBits(Value);
++        SetDIntAt(Buffer, Pos, DInt);
++    }
++
++    public static void SetDateAt(byte[] Buffer, int Pos, Date DateTime)
++    {
++        int Year, Month, Day, Hour, Min, Sec, Dow;
++        Calendar S7Date = Calendar.getInstance();
++        S7Date.setTime(DateTime);
++
++        Year  = S7Date.get(Calendar.YEAR);
++        Month = S7Date.get(Calendar.MONTH)+1;
++        Day   = S7Date.get(Calendar.DAY_OF_MONTH);
++        Hour  = S7Date.get(Calendar.HOUR_OF_DAY);
++        Min   = S7Date.get(Calendar.MINUTE);
++        Sec   = S7Date.get(Calendar.SECOND);
++        Dow   = S7Date.get(Calendar.DAY_OF_WEEK);
++
++        if (Year>1999)
++            Year-=2000;
++
++        Buffer[Pos]  =ByteToBCD(Year);
++        Buffer[Pos+1]=ByteToBCD(Month);
++        Buffer[Pos+2]=ByteToBCD(Day);
++        Buffer[Pos+3]=ByteToBCD(Hour);
++        Buffer[Pos+4]=ByteToBCD(Min);
++        Buffer[Pos+5]=ByteToBCD(Sec);
++        Buffer[Pos+6]=0;
++        Buffer[Pos+7]=ByteToBCD(Dow);
++    }
++
++    public static int BCDtoByte(byte B)
++    {
++        return ((B >> 4) * 10) + (B & 0x0F);
++    }
++
++    public static byte ByteToBCD(int Value)
++    {
++        return (byte) (((Value / 10) << 4) | (Value % 10));
++    }
++
++}
+Index: app/build.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/build.gradle	(revision )
++++ app/build.gradle	(revision )
+@@ -0,0 +1,32 @@
++apply plugin: 'com.android.application'
++
++android {
++    compileSdkVersion 25
++    buildToolsVersion "25.0.2"
++    defaultConfig {
++        applicationId "br.ufla.vilelalucas.androidscada"
++        minSdkVersion 15
++        targetSdkVersion 25
++        versionCode 1
++        versionName "1.0"
++        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
++    }
++    buildTypes {
++        release {
++            minifyEnabled false
++            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
++        }
++    }
++}
++
++dependencies {
++    compile fileTree(dir: 'libs', include: ['*.jar'])
++    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
++        exclude group: 'com.android.support', module: 'support-annotations'
++    })
++    compile 'com.android.support:appcompat-v7:25.1.0'
++    compile 'com.google.android.gms:play-services-appindexing:9.8.0'
++    compile 'com.android.support.constraint:constraint-layout:1.0.0-beta4'
++    compile 'com.android.support:design:25.1.0'
++    testCompile 'junit:junit:4.12'
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongIntTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongIntTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/LongIntTag.java	(revision )
+@@ -0,0 +1,24 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class LongIntTag extends PlcTag {
++    public LongIntTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(4);
++    }
++    public static boolean checkAddress(String addr) {
++        return check32bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetDWordAt(this.getValue(),0);
++    }
++    public void setType(){
++        super.tagType=7;
++    }
++}
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Client.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Client.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/S7Client.java	(revision )
+@@ -0,0 +1,1168 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++import java.io.DataInputStream;
++import java.io.DataOutputStream;
++import java.io.IOException;
++import java.io.UnsupportedEncodingException;
++import java.net.InetSocketAddress;
++import java.net.Socket;
++import java.net.SocketAddress;
++import java.util.Date;
++
++
++/**
++ *
++ * @author Dave Nardella
++ */
++public class S7Client
++{
++    // WordLength
++    private static final byte S7WLByte    =0x02;
++    private static final byte S7WLCounter =0x1C;
++    private static final byte S7WLTimer   =0x1D;
++    // Error Codes
++    public static final int errTCPConnectionFailed = 0x0001;
++    public static final int errTCPDataSend         = 0x0002;
++    public static final int errTCPDataRecv         = 0x0003;
++    public static final int errTCPDataRecvTout     = 0x0004;
++    public static final int errTCPConnectionReset  = 0x0005;
++    public static final int errISOInvalidPDU       = 0x0006;
++    public static final int errISOConnectionFailed = 0x0007;
++    public static final int errISONegotiatingPDU   = 0x0008;
++    public static final int errS7InvalidPDU        = 0x0009;
++    public static final int errS7DataRead          = 0x000A;
++    public static final int errS7DataWrite         = 0x000B;
++    public static final int errS7BufferTooSmall    = 0x000C;
++    public static final int errS7FunctionError     = 0x000D;
++    public static final int errS7InvalidParams     = 0x000E;
++
++    // Public fields
++    public boolean Connected = false;
++    public int LastError = 0;
++    public int RecvTimeout = 2000;
++
++    // Privates
++    private static final int ISOTCP = 102; // ISOTCP Port
++    private static final int MinPduSize = 16;
++    private static final int DefaultPduSizeRequested = 480;
++    private static final int IsoHSize = 7; // TPKT+COTP Header Size
++    private static final int MaxPduSize = DefaultPduSizeRequested+IsoHSize;
++
++
++    private Socket TCPSocket;
++    private final byte[] PDU = new byte[2048];
++
++    private DataInputStream InStream = null;
++    private DataOutputStream OutStream = null;
++
++    private String IPAddress;
++
++    private byte LocalTSAP_HI;
++    private byte LocalTSAP_LO;
++    private byte RemoteTSAP_HI;
++    private byte RemoteTSAP_LO;
++    private byte LastPDUType;
++
++    private short ConnType = S7.PG;
++    private int _PDULength = 0;
++
++    // Telegrams
++    // ISO Connection Request telegram (contains also ISO Header and COTP Header)
++    private static final byte ISO_CR[] = {
++            // TPKT (RFC1006 Header)
++            (byte)0x03, // RFC 1006 ID (3)
++            (byte)0x00, // Reserved, always 0
++            (byte)0x00, // High part of packet lenght (entire frame, payload and TPDU included)
++            (byte)0x16, // Low part of packet lenght (entire frame, payload and TPDU included)
++            // COTP (ISO 8073 Header)
++            (byte)0x11, // PDU Size Length
++            (byte)0xE0, // CR - Connection Request ID
++            (byte)0x00, // Dst Reference HI
++            (byte)0x00, // Dst Reference LO
++            (byte)0x00, // Src Reference HI
++            (byte)0x01, // Src Reference LO
++            (byte)0x00, // Class + Options Flags
++            (byte)0xC0, // PDU Max Length ID
++            (byte)0x01, // PDU Max Length HI
++            (byte)0x0A, // PDU Max Length LO
++            (byte)0xC1, // Src TSAP Identifier
++            (byte)0x02, // Src TSAP Length (2 bytes)
++            (byte)0x01, // Src TSAP HI (will be overwritten)
++            (byte)0x00, // Src TSAP LO (will be overwritten)
++            (byte)0xC2, // Dst TSAP Identifier
++            (byte)0x02, // Dst TSAP Length (2 bytes)
++            (byte)0x01, // Dst TSAP HI (will be overwritten)
++            (byte)0x02  // Dst TSAP LO (will be overwritten)
++    };
++
++    // S7 PDU Negotiation Telegram (contains also ISO Header and COTP Header)
++    private static final byte S7_PN[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x19,
++            (byte)0x02, (byte)0xf0, (byte)0x80, // TPKT + COTP (see above for info)
++            (byte)0x32, (byte)0x01, (byte)0x00, (byte)0x00,
++            (byte)0x04, (byte)0x00, (byte)0x00, (byte)0x08,
++            (byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x00,
++            (byte)0x00, (byte)0x01, (byte)0x00, (byte)0x01,
++            (byte)0x00, (byte)0x1e // PDU Length Requested = HI-LO 480 bytes
++    };
++
++    // S7 Read/Write Request Header (contains also ISO Header and COTP Header)
++    private static final byte S7_RW[] = { // 31-35 bytes
++            (byte)0x03,(byte)0x00,
++            (byte)0x00,(byte)0x1f,  // Telegram Length (Data Size + 31 or 35)
++            (byte)0x02,(byte)0xf0, (byte)0x80, // COTP (see above for info)
++            (byte)0x32,             // S7 Protocol ID
++            (byte)0x01,             // Job Type
++            (byte)0x00,(byte)0x00,  // Redundancy identification
++            (byte)0x05,(byte)0x00,  // PDU Reference
++            (byte)0x00,(byte)0x0e,  // Parameters Length
++            (byte)0x00,(byte)0x00,  // Data Length = Size(bytes) + 4
++            (byte)0x04,             // Function 4 Read Var, 5 Write Var
++            (byte)0x01,             // Items count
++            (byte)0x12,             // Var spec.
++            (byte)0x0a,             // Length of remaining bytes
++            (byte)0x10,             // Syntax ID
++            S7WLByte,               // Transport Size
++            (byte)0x00,(byte)0x00,  // Num Elements
++            (byte)0x00,(byte)0x00,  // DB Number (if any, else 0)
++            (byte)0x84,             // Area Type
++            (byte)0x00,(byte)0x00,(byte)0x00, // Area Offset
++            // WR area
++            (byte)0x00,             // Reserved
++            (byte)0x04,             // Transport size
++            (byte)0x00,(byte)0x00,  // Data Length * 8 (if not timer or counter)
++    };
++    private static final int Size_RD = 31;
++    private static final int Size_WR = 35;
++
++    // S7 Get Block Info Request Header (contains also ISO Header and COTP Header)
++    private static final byte S7_BI[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x25,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x05,
++            (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x0c, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x43, (byte)0x03,
++            (byte)0x00, (byte)0xff, (byte)0x09, (byte)0x00,
++            (byte)0x08, (byte)0x30,
++            (byte)0x41, // Block Type
++            (byte)0x30, (byte)0x30, (byte)0x30, (byte)0x30, (byte)0x30, // ASCII Block Number
++            (byte)0x41
++    };
++
++    // SZL First telegram request
++    private static final byte S7_SZL_FIRST[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x21,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00,
++            (byte)0x05, (byte)0x00, // Sequence out
++            (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x08, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x44, (byte)0x01,
++            (byte)0x00, (byte)0xff, (byte)0x09, (byte)0x00,
++            (byte)0x04,
++            (byte)0x00, (byte)0x00, // ID (29)
++            (byte)0x00, (byte)0x00  // Index (31)
++    };
++
++    // SZL Next telegram request
++    private static final byte S7_SZL_NEXT[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x21,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x06,
++            (byte)0x00, (byte)0x00, (byte)0x0c, (byte)0x00,
++            (byte)0x04, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x08, (byte)0x12, (byte)0x44, (byte)0x01,
++            (byte)0x01, // Sequence
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
++            (byte)0x0a, (byte)0x00, (byte)0x00, (byte)0x00
++    };
++
++    // Get Date/Time request
++    private static final byte S7_GET_DT[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x1d,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x38,
++            (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x04, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x47, (byte)0x01,
++            (byte)0x00, (byte)0x0a, (byte)0x00, (byte)0x00,
++            (byte)0x00
++    };
++
++    // Set Date/Time command
++    private static final byte S7_SET_DT[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x27,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x89,
++            (byte)0x03, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x0e, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x47, (byte)0x02,
++            (byte)0x00, (byte)0xff, (byte)0x09, (byte)0x00,
++            (byte)0x0a, (byte)0x00, (byte)0x19, // Hi part of Year
++            (byte)0x13, // Lo part of Year
++            (byte)0x12, // Month
++            (byte)0x06, // Day
++            (byte)0x17, // Hour
++            (byte)0x37, // Min
++            (byte)0x13, // Sec
++            (byte)0x00, (byte)0x01 // ms + Day of week
++    };
++
++    // S7 STOP request
++    private static final byte S7_STOP[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x21,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x0e,
++            (byte)0x00, (byte)0x00, (byte)0x10, (byte)0x00,
++            (byte)0x00, (byte)0x29, (byte)0x00, (byte)0x00,
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x09,
++            (byte)0x50, (byte)0x5f, (byte)0x50, (byte)0x52,
++            (byte)0x4f, (byte)0x47, (byte)0x52, (byte)0x41,
++            (byte)0x4d
++    };
++
++    // S7 HOT Start request
++    private static final byte S7_HOT_START[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x25,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x0c,
++            (byte)0x00, (byte)0x00, (byte)0x14, (byte)0x00,
++            (byte)0x00, (byte)0x28, (byte)0x00, (byte)0x00,
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
++            (byte)0xfd, (byte)0x00, (byte)0x00, (byte)0x09,
++            (byte)0x50, (byte)0x5f, (byte)0x50, (byte)0x52,
++            (byte)0x4f, (byte)0x47, (byte)0x52, (byte)0x41,
++            (byte)0x4d
++    };
++
++    // S7 COLD Start request
++    private static final byte S7_COLD_START[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x27,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x0f,
++            (byte)0x00, (byte)0x00, (byte)0x16, (byte)0x00,
++            (byte)0x00, (byte)0x28, (byte)0x00, (byte)0x00,
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
++            (byte)0xfd, (byte)0x00, (byte)0x02, (byte)0x43,
++            (byte)0x20, (byte)0x09, (byte)0x50, (byte)0x5f,
++            (byte)0x50, (byte)0x52, (byte)0x4f, (byte)0x47,
++            (byte)0x52, (byte)0x41, (byte)0x4d
++    };
++
++    // S7 Get PLC Status
++    private static final byte S7_GET_STAT[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x21,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x2c,
++            (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x08, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x44, (byte)0x01,
++            (byte)0x00, (byte)0xff, (byte)0x09, (byte)0x00,
++            (byte)0x04, (byte)0x04, (byte)0x24, (byte)0x00,
++            (byte)0x00
++    };
++
++    // S7 Set Session Password
++    private static final byte S7_SET_PWD[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x25,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x27,
++            (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x0c, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x45, (byte)0x01,
++            (byte)0x00, (byte)0xff, (byte)0x09, (byte)0x00,
++            (byte)0x08,
++            // 8 Char Encoded Password
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,
++            (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00
++    };
++
++    // S7 Clear Session Password
++    private static final byte S7_CLR_PWD[] = {
++            (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x1d,
++            (byte)0x02, (byte)0xf0, (byte)0x80, (byte)0x32,
++            (byte)0x07, (byte)0x00, (byte)0x00, (byte)0x29,
++            (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x00,
++            (byte)0x04, (byte)0x00, (byte)0x01, (byte)0x12,
++            (byte)0x04, (byte)0x11, (byte)0x45, (byte)0x02,
++            (byte)0x00, (byte)0x0a, (byte)0x00, (byte)0x00,
++            (byte)0x00
++    };
++
++    public S7Client()
++    {
++        // Placeholder for future implementations
++    }
++
++    public static String ErrorText(int Error)
++    {
++        switch (Error)
++        {
++            case errTCPConnectionFailed :
++                return "TCP Connection failed.";
++            case errTCPDataSend :
++                return "TCP Sending error.";
++            case errTCPDataRecv :
++                return "TCP Receiving error.";
++            case errTCPDataRecvTout :
++                return "Data Receiving timeout.";
++            case errTCPConnectionReset :
++                return "Connection reset by the peer.";
++            case errISOInvalidPDU :
++                return "Invalid ISO PDU received.";
++            case errISOConnectionFailed :
++                return "ISO connection refused by the CPU.";
++            case errISONegotiatingPDU :
++                return "ISO error negotiating the PDU length.";
++            case errS7InvalidPDU :
++                return "Invalid S7 PDU received.";
++            case errS7DataRead :
++                return "S7 Error reading data from the CPU.";
++            case errS7DataWrite :
++                return "S7 Error writing data to the CPU.";
++            case errS7BufferTooSmall :
++                return "The Buffer supplied to the function is too small.";
++            case errS7FunctionError :
++                return "S7 function refused by the CPU.";
++            case errS7InvalidParams :
++                return "Invalid parameters supplied to the function.";
++            default :
++                return "Unknown error : 0x"+Integer.toHexString(Error);
++        }
++    }
++
++    private int TCPConnect()
++    {
++        SocketAddress sockaddr = new InetSocketAddress(IPAddress, ISOTCP);
++        LastError=0;
++        try {
++            TCPSocket = new Socket();
++            TCPSocket.connect(sockaddr ,5000);
++            TCPSocket.setTcpNoDelay(true);
++            InStream = new DataInputStream(TCPSocket.getInputStream());
++            OutStream = new DataOutputStream(TCPSocket.getOutputStream());
++        }
++        catch (IOException e) {
++            LastError=errTCPConnectionFailed;
++        }
++        return LastError;
++    }
++
++    private int WaitForData(int Size, int Timeout)
++    {
++        int cnt = 0;
++        LastError=0;
++        int SizeAvail;
++        boolean Expired = false;
++        try
++        {
++            SizeAvail=InStream.available();
++            while ((SizeAvail<Size) && (!Expired) && (LastError==0))
++            {
++
++                cnt++;
++                try {
++                    Thread.sleep(1);
++                }
++                catch (InterruptedException ex) {
++                    LastError=errTCPDataRecvTout;
++                }
++                SizeAvail=InStream.available();
++                Expired=cnt>Timeout;
++                // If timeout we clean the buffer
++                if (Expired && (SizeAvail>0) && (LastError==0))
++                    InStream.read(PDU, 0, SizeAvail);
++            }
++        }
++        catch (IOException ex)
++        {
++            LastError=errTCPDataRecvTout;
++        }
++        if (cnt>=Timeout)
++        {
++            LastError=errTCPDataRecvTout;
++        }
++        return LastError;
++    }
++
++    private int RecvPacket(byte[] Buffer, int Start, int Size)
++    {
++        int BytesRead=0;
++        LastError=WaitForData(Size,RecvTimeout);
++        if (LastError==0)
++        {
++            try {
++                BytesRead = InStream.read(Buffer, Start, Size);
++            } catch (IOException ex) {
++                LastError=errTCPDataRecv;
++            }
++            if (BytesRead==0)
++                LastError=errTCPConnectionReset;
++        }
++        return LastError;
++    }
++
++    private void SendPacket(byte[] Buffer, int Len)
++    {
++        LastError = 0;
++        try {
++            OutStream.write(Buffer,0,Len);
++            OutStream.flush();
++        } catch (IOException ex) {
++            LastError = errTCPDataSend;
++        }
++    }
++    private void SendPacket(byte[] Buffer)
++    {
++        SendPacket(Buffer,Buffer.length);
++    }
++
++    private int RecvIsoPacket()
++    {
++        Boolean Done = false;
++        int Size = 0;
++        while ((LastError==0) && !Done)
++        {
++            // Get TPKT (4 bytes)
++            RecvPacket(PDU, 0, 4);
++            if (LastError==0)
++            {
++                Size=S7.GetWordAt(PDU,2);
++                // Check 0 bytes Data Packet (only TPKT+COTP = 7 bytes)
++                if (Size==IsoHSize)
++                    RecvPacket(PDU,4, 3); // Skip remaining 3 bytes and Done is still false
++                else
++                {
++                    if ((Size>MaxPduSize) || (Size<MinPduSize))
++                        LastError=errISOInvalidPDU;
++                    else
++                        Done = true; // a valid Length !=7 && >16 && <247
++                }
++            }
++        }
++        if (LastError==0)
++        {
++            RecvPacket(PDU,4, 3); // Skip remaining 3 COTP bytes
++            LastPDUType=PDU[5];   // Stores PDU Type, we need it
++            // Receives the S7 Payload
++            RecvPacket(PDU, 7, Size-IsoHSize);
++        }
++        if (LastError==0)
++            return Size;
++        else
++            return 0;
++    }
++
++    private int ISOConnect()
++    {
++        int Size;
++        ISO_CR[16]=LocalTSAP_HI;
++        ISO_CR[17]=LocalTSAP_LO;
++        ISO_CR[20]=RemoteTSAP_HI;
++        ISO_CR[21]=RemoteTSAP_LO;
++
++        // Sends the connection request telegram
++        SendPacket(ISO_CR);
++        if (LastError==0)
++        {
++            // Gets the reply (if any)
++            Size=RecvIsoPacket();
++            if (LastError==0)
++            {
++                if (Size==22)
++                {
++                    if (LastPDUType!=(byte)0xD0) // 0xD0 = CC Connection confirm
++                        LastError=errISOConnectionFailed;
++                }
++                else
++                    LastError=errISOInvalidPDU;
++            }
++        }
++        return LastError;
++    }
++
++    private int NegotiatePduLength()
++    {
++        int Length;
++        // Set PDU Size Requested
++        S7.SetWordAt(S7_PN,23,DefaultPduSizeRequested);
++        // Sends the connection request telegram
++        SendPacket(S7_PN);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (LastError==0)
++            {
++                // check S7 Error
++                if ((Length==27) && (PDU[17]==0) && (PDU[18]==0))  // 20 = size of Negotiate Answer
++                {
++                    // Get PDU Size Negotiated
++                    _PDULength = S7.GetWordAt(PDU,25);
++                    if (_PDULength>0)
++                        return 0;
++                    else
++                        LastError=errISONegotiatingPDU;
++                }
++                else
++                    LastError=errISONegotiatingPDU;
++            }
++        }
++        return LastError;
++    }
++
++    public void SetConnectionType(short ConnectionType)
++    {
++        ConnType=ConnectionType;
++    }
++
++    public int Connect()
++    {
++        LastError=0;
++        if (!Connected)
++        {
++            TCPConnect();
++            if (LastError==0) // First stage : TCP Connection
++            {
++                ISOConnect();
++                if (LastError==0) // Second stage : ISOTCP (ISO 8073) Connection
++                {
++                    LastError=NegotiatePduLength(); // Third stage : S7 PDU negotiation
++                }
++            }
++        }
++        Connected=LastError==0;
++        return LastError;
++    }
++
++    public void Disconnect()
++    {
++        if (Connected)
++        {
++            try {
++                OutStream.close();
++                InStream.close();
++                TCPSocket.close();
++                _PDULength=0;
++            } catch (IOException ex) {
++            }
++            Connected=false;
++        }
++    }
++
++    public int ConnectTo(String Address, int Rack, int Slot)
++    {
++        int RemoteTSAP=(ConnType<<8)+ (Rack * 0x20) + Slot;
++        SetConnectionParams(Address, 0x0100, RemoteTSAP);
++        return Connect();
++    }
++
++    public int PDULength()
++    {
++        return _PDULength;
++    }
++
++    public void SetConnectionParams(String Address, int LocalTSAP, int RemoteTSAP)
++    {
++        int LocTSAP = LocalTSAP & 0x0000FFFF;
++        int RemTSAP = RemoteTSAP & 0x0000FFFF;
++        IPAddress    =  Address;
++        LocalTSAP_HI = (byte) (LocTSAP>>8);
++        LocalTSAP_LO = (byte) (LocTSAP & 0x00FF);
++        RemoteTSAP_HI= (byte) (RemTSAP>>8);
++        RemoteTSAP_LO= (byte) (RemTSAP & 0x00FF);
++    }
++
++    public int ReadArea(int Area, int DBNumber, int Start, int Amount, byte[] Data)
++    {
++        int Address;
++        int NumElements;
++        int MaxElements;
++        int TotElements;
++        int SizeRequested;
++        int Length;
++        int Offset = 0;
++        int WordSize = 1;
++
++        LastError=0;
++
++        // If we are addressing Timers or counters the element size is 2
++        if ((Area==S7.S7AreaCT) || (Area==S7.S7AreaTM))
++            WordSize = 2;
++
++        MaxElements=(_PDULength-18) / WordSize; // 18 = Reply telegram header
++        TotElements=Amount;
++
++        while ((TotElements>0) && (LastError==0))
++        {
++            NumElements=TotElements;
++            if (NumElements>MaxElements)
++                NumElements=MaxElements;
++
++            SizeRequested = NumElements * WordSize;
++
++            // Setup the telegram
++            System.arraycopy(S7_RW, 0, PDU, 0, Size_RD);
++            // Set DB Number
++            PDU[27] = (byte) Area;
++            // Set Area
++            if (Area==S7.S7AreaDB)
++                S7.SetWordAt(PDU,25,DBNumber);
++
++            // Adjusts Start and word length
++            if ((Area==S7.S7AreaCT) || (Area==S7.S7AreaTM))
++            {
++                Address = Start;
++                if (Area==S7.S7AreaCT)
++                    PDU[22]=S7WLCounter;
++                else
++                    PDU[22]=S7WLTimer;
++            }
++            else
++                Address = Start<<3;
++
++            // Num elements
++            S7.SetWordAt(PDU,23,NumElements);
++
++            // Address into the PLC (only 3 bytes)
++            PDU[30] = (byte) (Address & 0x0FF);
++            Address = Address >> 8;
++            PDU[29] = (byte) (Address & 0x0FF);
++            Address = Address >> 8;
++            PDU[28] = (byte) (Address & 0x0FF);
++
++            SendPacket(PDU, Size_RD);
++            if (LastError==0)
++            {
++                Length=RecvIsoPacket();
++                if (LastError==0)
++                {
++                    if (Length>=25)
++                    {
++                        if ((Length-25==SizeRequested) && (PDU[21]==(byte)0xFF))
++                        {
++                            System.arraycopy(PDU, 25, Data, Offset, SizeRequested);
++                            Offset+=SizeRequested;
++                        }
++                        else
++                            LastError = errS7DataRead;
++                    }
++                    else
++                        LastError = errS7InvalidPDU;
++                }
++            }
++
++            TotElements -= NumElements;
++            Start += NumElements*WordSize;
++        }
++        return LastError;
++    }
++
++    public int WriteArea(int Area, int DBNumber, int Start, int Amount, byte[] Data)
++    {
++        int Address;
++        int NumElements;
++        int MaxElements;
++        int TotElements;
++        int DataSize;
++        int IsoSize;
++        int Length;
++        int Offset = 0;
++        int WordSize = 1;
++
++        LastError=0;
++
++        // If we are addressing Timers or counters the element size is 2
++        if ((Area==S7.S7AreaCT) || (Area==S7.S7AreaTM))
++            WordSize = 2;
++
++        MaxElements=(_PDULength-35) / WordSize; // 18 = Reply telegram header
++        TotElements=Amount;
++
++        while ((TotElements>0) && (LastError==0))
++        {
++            NumElements=TotElements;
++            if (NumElements>MaxElements)
++                NumElements=MaxElements;
++
++            DataSize = NumElements * WordSize;
++            IsoSize  = Size_WR + DataSize;
++
++            // Setup the telegram
++            System.arraycopy(S7_RW, 0, PDU, 0, Size_WR);
++            // Whole telegram Size
++            S7.SetWordAt(PDU,2,IsoSize);
++            // Data Length
++            Length=DataSize+4;
++            S7.SetWordAt(PDU,15,Length);
++            // Function
++            PDU[17]= (byte) 0x05;
++            // Set DB Number
++            PDU[27] = (byte) Area;
++            if (Area==S7.S7AreaDB)
++                S7.SetWordAt(PDU,25,DBNumber);
++
++            // Adjusts Start and word length
++            if ((Area==S7.S7AreaCT) || (Area==S7.S7AreaTM))
++            {
++                Address = Start;
++                Length = DataSize;
++                if (Area==S7.S7AreaCT)
++                    PDU[22]=S7WLCounter;
++                else
++                    PDU[22]=S7WLTimer;
++            }
++            else
++            {
++                Address = Start<<3;
++                Length  = DataSize<<3;
++            }
++            // Num elements
++            S7.SetWordAt(PDU,23,NumElements);
++            // Address into the PLC
++            PDU[30] = (byte) (Address & 0x0FF);
++            Address = Address >> 8;
++            PDU[29] = (byte) (Address & 0x0FF);
++            Address = Address >> 8;
++            PDU[28] = (byte) (Address & 0x0FF);
++            // Length
++            S7.SetWordAt(PDU,33,Length);
++
++            // Copies the Data
++            System.arraycopy(Data, Offset, PDU, 35, DataSize);
++
++            SendPacket(PDU, IsoSize);
++            if (LastError==0)
++            {
++                Length=RecvIsoPacket();
++                if (LastError==0)
++                {
++                    if (Length==22)
++                    {
++                        if ((S7.GetWordAt(PDU,17)!=0) || (PDU[21]!=(byte)0xFF))
++                            LastError = errS7DataWrite;
++                    }
++                    else
++                        LastError = errS7InvalidPDU;
++                }
++            }
++
++            Offset+=DataSize;
++            TotElements -= NumElements;
++            Start += NumElements*WordSize;
++        }
++        return LastError;
++    }
++
++    public int GetAgBlockInfo(int BlockType, int BlockNumber, S7BlockInfo Block)
++    {
++        int Length;
++        LastError=0;
++        // Block Type
++        S7_BI[30] = (byte) BlockType;
++        // Block Number
++        S7_BI[31]=(byte) ((BlockNumber / 10000)+0x30);
++        BlockNumber=BlockNumber % 10000;
++        S7_BI[32]=(byte) ((BlockNumber / 1000)+0x30);
++        BlockNumber=BlockNumber % 1000;
++        S7_BI[33]=(byte) ((BlockNumber / 100)+0x30);
++        BlockNumber=BlockNumber % 100;
++        S7_BI[34]=(byte) ((BlockNumber / 10)+0x30);
++        BlockNumber=BlockNumber % 10;
++        S7_BI[35]=(byte) ((BlockNumber / 1)+0x30);
++
++        SendPacket(S7_BI);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 32) // the minimum expected
++            {
++                if ((S7.GetWordAt(PDU,27)==0) && (PDU[29]==(byte)0xFF))
++                {
++                    Block.Update(PDU, 42);
++                }
++                else
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++
++        return LastError;
++    }
++    /**
++     *
++     * @param DBNumber DB Number
++     * @param Buffer   Destination buffer
++     * @param SizeRead How many bytes were read
++     * @return
++     */
++    public int DBGet(int DBNumber, byte[] Buffer, IntByRef SizeRead)
++    {
++        S7BlockInfo Block = new S7BlockInfo();
++        // Query the DB Length
++        LastError = GetAgBlockInfo(S7.Block_DB, DBNumber, Block);
++        if (LastError==0)
++        {
++            int SizeToRead = Block.MC7Size();
++            // Checks the room
++            if (SizeToRead<=Buffer.length)
++            {
++                LastError=ReadArea(S7.S7AreaDB, DBNumber, 0, SizeToRead, Buffer);
++                if (LastError==0)
++                    SizeRead.Value=SizeToRead;
++            }
++            else
++                LastError=errS7BufferTooSmall;
++        }
++        return LastError;
++    }
++
++    public int ReadSZL(int ID, int Index, S7Szl SZL)
++    {
++        int Length;
++        int DataSZL;
++        int Offset = 0;
++        boolean Done = false;
++        boolean First = true;
++        byte Seq_in =0x00;
++        int Seq_out =0x0000;
++
++        LastError=0;
++        SZL.DataSize=0;
++        do
++        {
++            if (First)
++            {
++                S7.SetWordAt(S7_SZL_FIRST, 11, ++Seq_out);
++                S7.SetWordAt(S7_SZL_FIRST, 29, ID);
++                S7.SetWordAt(S7_SZL_FIRST, 31, Index);
++                SendPacket(S7_SZL_FIRST);
++            }
++            else
++            {
++                S7.SetWordAt(S7_SZL_NEXT, 11, ++Seq_out);
++                PDU[24] = (byte)Seq_in;
++                SendPacket(S7_SZL_NEXT);
++            }
++            if (LastError!=0)
++                return LastError;
++
++            Length=RecvIsoPacket();
++            if (LastError==0)
++            {
++                if (First)
++                {
++                    if (Length > 32) // the minimum expected
++                    {
++                        if ((S7.GetWordAt(PDU,27)==0) && (PDU[29]==(byte)0xFF))
++                        {
++                            // Gets Amount of this slice
++                            DataSZL=S7.GetWordAt(PDU,31)-8; // Skips extra params (ID, Index ...)
++                            Done=PDU[26]==0x00;
++                            Seq_in=(byte)PDU[24]; // Slice sequence
++
++                            SZL.LENTHDR=S7.GetWordAt(PDU, 37);
++                            SZL.N_DR=S7.GetWordAt(PDU, 39);
++                            SZL.Copy(PDU, 41, Offset, DataSZL);
++                            Offset+=DataSZL;
++                            SZL.DataSize+=DataSZL;
++                        }
++                        else
++                            LastError = errS7FunctionError;
++                    }
++                    else
++                        LastError = errS7InvalidPDU;
++                }
++                else
++                {
++                    if (Length > 32) // the minimum expected
++                    {
++                        if ((S7.GetWordAt(PDU,27)==0) && (PDU[29]==(byte)0xFF))
++                        {
++                            // Gets Amount of this slice
++                            DataSZL=S7.GetWordAt(PDU,31);
++                            Done=PDU[26]==0x00;
++                            Seq_in=(byte)PDU[24]; // Slice sequence
++                            SZL.Copy(PDU, 37, Offset, DataSZL);
++                            Offset+=DataSZL;
++                            SZL.DataSize+=DataSZL;
++                        }
++                        else
++                            LastError = errS7FunctionError;
++                    }
++                    else
++                        LastError = errS7InvalidPDU;
++                }
++            }
++            First=false;
++        }
++        while(!Done && (LastError==0));
++
++        return LastError;
++    }
++
++
++    public int GetCpuInfo(S7CpuInfo Info)
++    {
++        S7Szl SZL = new S7Szl(1024);
++
++        LastError = ReadSZL(0x001C, 0x0000, SZL);
++        if (LastError==0)
++        {
++            Info.Update(SZL.Data, 0);
++        }
++        return LastError;
++    }
++
++    public int GetCpInfo(S7CpInfo Info)
++    {
++        S7Szl SZL = new S7Szl(1024);
++
++        LastError = ReadSZL(0x0131, 0x0001, SZL);
++        if (LastError==0)
++        {
++            Info.Update(SZL.Data, 0);
++        }
++        return LastError;
++    }
++
++    public int GetOrderCode(S7OrderCode Code)
++    {
++        S7Szl SZL = new S7Szl(1024);
++
++        LastError = ReadSZL(0x0011, 0x0000, SZL);
++        if (LastError==0)
++        {
++            Code.Update(SZL.Data, 0, SZL.DataSize);
++        }
++        return LastError;
++    }
++
++    public int GetPlcDateTime(Date DateTime)
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_GET_DT);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 30) // the minimum expected
++            {
++                if ((S7.GetWordAt(PDU,27)==0) && (PDU[29]==(byte)0xFF))
++                {
++                    DateTime=S7.GetDateAt(PDU, 34);
++                }
++                else
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++
++        return LastError;
++    }
++
++    public int SetPlcDateTime(Date DateTime)
++    {
++        int Length;
++
++        LastError = 0;
++        S7.SetDateAt(S7_SET_DT, 31, DateTime);
++
++        SendPacket(S7_SET_DT);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 30) // the minimum expected
++            {
++                if (S7.GetWordAt(PDU,27)!=0)
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++
++        return LastError;
++    }
++
++    public int SetPlcSystemDateTime()
++    {
++        return SetPlcDateTime(new Date());
++    }
++
++    public int PlcStop()
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_STOP);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 18) // 18 is the minimum expected
++            {
++                if (S7.GetWordAt(PDU,17)!=0)
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++        return LastError;
++    }
++
++    public int PlcHotStart()
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_HOT_START);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 18) // the minimum expected
++            {
++                if (S7.GetWordAt(PDU,17)!=0)
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++        return LastError;
++    }
++
++    public int PlcColdStart()
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_COLD_START);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 18) // the minimum expected
++            {
++                if (S7.GetWordAt(PDU,17)!=0)
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++        return LastError;
++    }
++
++    public int GetPlcStatus(IntByRef Status)
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_GET_STAT);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 30) // the minimum expected
++            {
++                if (S7.GetWordAt(PDU,27)==0)
++                {
++                    switch (PDU[44])
++                    {
++                        case S7.S7CpuStatusUnknown :
++                        case S7.S7CpuStatusRun     :
++                        case S7.S7CpuStatusStop    : Status.Value=PDU[44];
++                            break;
++                        default :
++                            // Since RUN status is always 0x08 for all CPUs and CPs, STOP status
++                            // sometime can be coded as 0x03 (especially for old cpu...)
++                            Status.Value=S7.S7CpuStatusStop;
++                    }
++                }
++                else
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++        return LastError;
++    }
++
++    public int SetSessionPassword(String Password)
++    {
++        byte[] pwd = {0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20};
++        int Length;
++
++        LastError = 0;
++        // Adjusts the Password length to 8
++        if (Password.length()>8)
++            Password=Password.substring(0, 8);
++        else
++        {
++            while (Password.length()<8)
++                Password=Password+" ";
++        }
++
++        try {
++            pwd = Password.getBytes("UTF-8");
++        } catch (UnsupportedEncodingException ex) {
++            LastError = errS7InvalidParams;
++        }
++        if (LastError==0)
++        {
++            // Encodes the password
++            pwd[0]=(byte) (pwd[0] ^ 0x55);
++            pwd[1]=(byte) (pwd[1] ^ 0x55);
++            for (int c = 2; c < 8; c++)
++            {
++                pwd[c]=(byte) (pwd[c] ^ 0x55 ^ pwd[c-2]);
++            }
++            System.arraycopy(pwd, 0, S7_SET_PWD, 29, 8);
++            // Sends the telegrem
++            SendPacket(S7_SET_PWD);
++            if (LastError==0)
++            {
++                Length=RecvIsoPacket();
++                if (Length > 32) // the minimum expected
++                {
++                    if (S7.GetWordAt(PDU,27)!=0)
++                        LastError = errS7FunctionError;
++                }
++                else
++                    LastError = errS7InvalidPDU;
++            }
++        }
++        return LastError;
++    }
++
++    public int ClearSessionPassword()
++    {
++        int Length;
++
++        LastError = 0;
++        SendPacket(S7_CLR_PWD);
++        if (LastError==0)
++        {
++            Length=RecvIsoPacket();
++            if (Length > 30) // the minimum expected
++            {
++                if (S7.GetWordAt(PDU,27)!=0)
++                    LastError = errS7FunctionError;
++            }
++            else
++                LastError = errS7InvalidPDU;
++        }
++        return LastError;
++    }
++
++    public int GetProtection(S7Protection Protection)
++    {
++        S7Szl SZL = new S7Szl(256);
++
++        LastError = ReadSZL(0x0232, 0x0004, SZL);
++        if (LastError==0)
++        {
++            Protection.Update(SZL.Data);
++        }
++        return LastError;
++    }
++
++}
+Index: gradle.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>windows-1252
+===================================================================
+--- gradle.properties	(revision )
++++ gradle.properties	(revision )
+@@ -0,0 +1,17 @@
++# Project-wide Gradle settings.
++
++# IDE (e.g. Android Studio) users:
++# Gradle settings configured through the IDE *will override*
++# any settings specified in this file.
++
++# For more details on how to configure your build environment visit
++# http://www.gradle.org/docs/current/userguide/build_environment.html
++
++# Specifies the JVM arguments used for the daemon process.
++# The setting is particularly useful for tweaking memory settings.
++org.gradle.jvmargs=-Xmx1536m
++
++# When configured, Gradle will run in incubating parallel mode.
++# This option should only be used with decoupled projects. More details, visit
++# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
++# org.gradle.parallel=true
+Index: .idea/compiler.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/compiler.xml	(revision )
++++ .idea/compiler.xml	(revision )
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="CompilerConfiguration">
++    <resourceExtensions />
++    <wildcardResourcePatterns>
++      <entry name="!?*.java" />
++      <entry name="!?*.form" />
++      <entry name="!?*.class" />
++      <entry name="!?*.groovy" />
++      <entry name="!?*.scala" />
++      <entry name="!?*.flex" />
++      <entry name="!?*.kt" />
++      <entry name="!?*.clj" />
++      <entry name="!?*.aj" />
++    </wildcardResourcePatterns>
++    <annotationProcessing>
++      <profile default="true" name="Default" enabled="false">
++        <processorPath useClasspath="true" />
++      </profile>
++    </annotationProcessing>
++  </component>
++</project>
+\ No newline at end of file
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/CharTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/CharTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/CharTag.java	(revision )
+@@ -0,0 +1,27 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class CharTag extends PlcTag {
++    public CharTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(1);
++    }
++
++
++    public static boolean checkAddress(String addr) {
++        return check8bit(addr);
++    }
++    public String tagTostr(){
++
++        return this.getTagName()+"-"+this.getAddress()+":"+ this.getValue()[0];
++
++    }
++    public void setType(){
++        super.tagType=3;
++    }
++}
+Index: app/src/main/res/values-v21/styles.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values-v21/styles.xml	(revision )
++++ app/src/main/res/values-v21/styles.xml	(revision )
+@@ -0,0 +1,9 @@
++<resources>
++
++    <style name="AppTheme.NoActionBar">
++        <item name="windowActionBar">false</item>
++        <item name="windowNoTitle">true</item>
++        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
++        <item name="android:statusBarColor">@android:color/transparent</item>
++    </style>
++</resources>
+Index: app/src/main/res/layout/activity_main.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/layout/activity_main.xml	(revision )
++++ app/src/main/res/layout/activity_main.xml	(revision )
+@@ -0,0 +1,203 @@
++<?xml version="1.0" encoding="utf-8"?>
++<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:id="@+id/activity_main"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    tools:context="br.ufla.vilelalucas.androidscada.MainActivity">
++
++
++    <Button
++        android:text="Conectar"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:id="@+id/button"
++        android:onClick="conectarClick"
++        android:layout_weight="1"
++        app:layout_constraintBottom_toBottomOf="parent"
++        android:layout_marginBottom="16dp"
++        android:layout_marginStart="16dp"
++        app:layout_constraintLeft_toLeftOf="parent"
++        android:layout_marginLeft="16dp"
++        android:layout_marginEnd="16dp"
++        app:layout_constraintRight_toRightOf="parent"
++        android:layout_marginRight="16dp" />
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:id="@+id/linearLayout2"
++        android:layout_weight="1"
++        app:layout_constraintRight_toRightOf="parent"
++        app:layout_constraintTop_toTopOf="parent"
++        android:layout_marginStart="16dp"
++        app:layout_constraintLeft_toLeftOf="parent"
++        android:layout_marginLeft="16dp"
++        android:layout_marginEnd="16dp"
++        android:layout_marginRight="16dp"
++        app:layout_constraintHorizontal_bias="0.0">
++
++        <LinearLayout
++            android:orientation="horizontal"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginStart="8dp"
++            app:layout_constraintLeft_toLeftOf="parent"
++            android:layout_marginLeft="8dp"
++            android:id="@+id/linearLayout"
++            android:layout_marginTop="16dp"
++            app:layout_constraintTop_toTopOf="parent"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                tools:layout_editor_absoluteY="8dp"
++                tools:layout_editor_absoluteX="8dp"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="IP do CLP"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/ipView"
++                    app:layout_constraintLeft_toLeftOf="parent"
++                    app:layout_constraintTop_toTopOf="parent"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="textPersonName"
++                    android:text="192.168.0.10"
++                    android:ems="10"
++                    android:id="@+id/ipText"
++                    tools:layout_editor_absoluteY="0dp"
++                    tools:layout_conversion_absoluteX="0dp"
++                    tools:layout_conversion_absoluteY="0dp"
++                    tools:layout_conversion_absoluteWidth="0dp"
++                    tools:layout_conversion_absoluteHeight="0dp"
++                    tools:layout_editor_absoluteX="0dp"
++                    android:layout_weight="1" />
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                tools:layout_editor_absoluteY="8dp"
++                tools:layout_editor_absoluteX="8dp"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Rack"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/rackView"
++                    tools:layout_editor_absoluteX="0dp"
++                    app:layout_constraintTop_toTopOf="parent"
++                    tools:layout_conversion_absoluteX="0dp"
++                    tools:layout_conversion_absoluteY="0dp"
++                    tools:layout_conversion_absoluteWidth="0dp"
++                    tools:layout_conversion_absoluteHeight="0dp"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:inputType="number"
++                    android:text="0"
++                    android:ems="10"
++                    android:id="@+id/rackText"
++                    app:layout_constraintVertical_bias="1.0"
++                    tools:layout_conversion_absoluteX="0dp"
++                    tools:layout_conversion_absoluteY="0dp"
++                    tools:layout_conversion_absoluteWidth="0dp"
++                    tools:layout_conversion_absoluteHeight="0dp"
++                    tools:layout_editor_absoluteY="0dp"
++                    tools:layout_editor_absoluteX="0dp"
++                    android:singleLine="false"
++                    android:selectAllOnFocus="false"
++                    android:layout_weight="1" />
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                tools:layout_editor_absoluteY="8dp"
++                tools:layout_editor_absoluteX="8dp"
++                android:layout_weight="1">
++
++                <TextView
++                    android:text="Slot"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:id="@+id/slotView"
++                    app:layout_constraintLeft_toLeftOf="parent"
++                    app:layout_constraintTop_toTopOf="parent"
++                    tools:layout_conversion_absoluteX="0dp"
++                    tools:layout_conversion_absoluteY="0dp"
++                    tools:layout_conversion_absoluteWidth="0dp"
++                    tools:layout_conversion_absoluteHeight="0dp"
++                    android:layout_weight="1" />
++
++                <EditText
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:inputType="number"
++                    android:text="2"
++                    android:ems="10"
++                    android:id="@+id/slotText"
++                    tools:layout_editor_absoluteY="0dp"
++                    tools:layout_editor_absoluteX="0dp"
++                    tools:layout_conversion_absoluteX="0dp"
++                    tools:layout_conversion_absoluteY="0dp"
++                    tools:layout_conversion_absoluteWidth="0dp"
++                    tools:layout_conversion_absoluteHeight="0dp"
++                    android:layout_weight="1" />
++            </LinearLayout>
++
++            <Button
++                android:text="Editar"
++                android:layout_width="76dp"
++                android:layout_height="wrap_content"
++                android:id="@+id/editarPlcButton"
++                android:onClick="editarPlcClick" />
++
++        </LinearLayout>
++
++        <Button
++            android:text="Gerenciamento de Tags"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:id="@+id/tagManButton"
++            android:onClick="TagManClick" />
++
++    </LinearLayout>
++
++    <ListView
++        android:id="@+id/listView"
++        android:cacheColorHint="@color/colorPrimary"
++        android:background="#2a0f6e"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        android:layout_weight="1"
++        android:layout_marginTop="16dp"
++        app:layout_constraintTop_toBottomOf="@+id/linearLayout2"
++        android:layout_marginStart="16dp"
++        app:layout_constraintLeft_toLeftOf="parent"
++        android:layout_marginLeft="16dp"
++        app:layout_constraintBottom_toTopOf="@+id/button"
++        android:layout_marginBottom="8dp"
++        android:layout_marginEnd="16dp"
++        app:layout_constraintRight_toRightOf="parent"
++        android:layout_marginRight="16dp" />
++
++
++</android.support.constraint.ConstraintLayout>
+Index: app/src/main/res/values-w820dp/dimens.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values-w820dp/dimens.xml	(revision )
++++ app/src/main/res/values-w820dp/dimens.xml	(revision )
+@@ -0,0 +1,6 @@
++<resources>
++    <!-- Example customization of dimensions originally defined in res/values/dimens.xml
++         (such as screen margins) for screens with more than 820dp of available width. This
++         would include 7" and 10" devices in landscape (~960dp and ~1280dp respectively). -->
++    <dimen name="activity_horizontal_margin">64dp</dimen>
++</resources>
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/IntByRef.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/IntByRef.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Moka7/IntByRef.java	(revision )
+@@ -0,0 +1,18 @@
++package br.ufla.vilelalucas.androidscada.Moka7;
++
++/**
++ * Created by Lucas on 03/01/2017.
++ */
++
++public class IntByRef {
++
++    public IntByRef(int Val)
++    {
++        this.Value=Val;
++    }
++    public IntByRef()
++    {
++        this.Value=0;
++    }
++    public int Value;
++}
+\ No newline at end of file
+Index: app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/BinaryTag.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/BinaryTag.java	(revision )
++++ app/src/main/java/br/ufla/vilelalucas/androidscada/Tags/BinaryTag.java	(revision )
+@@ -0,0 +1,27 @@
++package br.ufla.vilelalucas.androidscada.Tags;
++
++import br.ufla.vilelalucas.androidscada.Moka7.S7;
++
++/**
++ * Created by Lucas on 10/01/2017.
++ */
++
++public class BinaryTag extends PlcTag {
++
++
++    public BinaryTag(String address,String tagName){
++        super(address,tagName);
++        super.setTagSize(1);
++    }
++
++    public static boolean checkAddress(String addr) {
++        return checkBool(addr);
++    }
++
++    public String tagTostr(){
++        return this.getTagName()+"-"+this.getAddress()+":"+ S7.GetBitAt(this.getValue(),0,this.getBitNumber());
++    }
++    public void setType(){
++        super.tagType=1;
++    }
++}
+Index: build.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- build.gradle	(revision )
++++ build.gradle	(revision )
+@@ -0,0 +1,23 @@
++// Top-level build file where you can add configuration options common to all sub-projects/modules.
++
++buildscript {
++    repositories {
++        jcenter()
++    }
++    dependencies {
++        classpath 'com.android.tools.build:gradle:2.2.3'
++
++        // NOTE: Do not place your application dependencies here; they belong
++        // in the individual module build.gradle files
++    }
++}
++
++allprojects {
++    repositories {
++        jcenter()
++    }
++}
++
++task clean(type: Delete) {
++    delete rootProject.buildDir
++}
+Index: app/src/androidTest/java/br/ufla/vilelalucas/androidscada/ExampleInstrumentedTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/androidTest/java/br/ufla/vilelalucas/androidscada/ExampleInstrumentedTest.java	(revision )
++++ app/src/androidTest/java/br/ufla/vilelalucas/androidscada/ExampleInstrumentedTest.java	(revision )
+@@ -0,0 +1,26 @@
++package br.ufla.vilelalucas.androidscada;
++
++import android.content.Context;
++import android.support.test.InstrumentationRegistry;
++import android.support.test.runner.AndroidJUnit4;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++
++import static org.junit.Assert.*;
++
++/**
++ * Instrumentation test, which will execute on an Android device.
++ *
++ * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
++ */
++@RunWith(AndroidJUnit4.class)
++public class ExampleInstrumentedTest {
++    @Test
++    public void useAppContext() throws Exception {
++        // Context of the app under test.
++        Context appContext = InstrumentationRegistry.getTargetContext();
++
++        assertEquals("br.ufla.vilelalucas.androidscada", appContext.getPackageName());
++    }
++}

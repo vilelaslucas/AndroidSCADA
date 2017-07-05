@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">AndroidSCADA</string>
+    <string-array name="tiposTags_array">
+        <item>Boolean</item>
+        <item>Int</item>
+        <item>UInt</item>
+        <item>Float</item>
+        <item>Char</item>
+        <item>Long Int</item>
+        <item>Long Uint</item>
+        <item>Short Int</item>
+        <item>Short UInt</item>
+    </string-array>
+    <string-array name="condicoesAlarms_array">
+        <item>Verdadeiro (Booleana)</item>
+        <item>Falso (Booleana)</item>
+        <item>Maior</item>
+        <item>Menor</item>
+        <item>Maior/Igual</item>
+        <item>Menor/Igual</item>
+    </string-array>
+    <string-array name="verdadeiroOuFalso">
+        <item>Verdadeiro</item>
+        <item>Falso</item>
+    </string-array>
+    <string name="title_activity_tag_manager">TagManagerActivity</string>
+    <string name="title_activity_plcman">PLCManActivity</string>
+</resources>
